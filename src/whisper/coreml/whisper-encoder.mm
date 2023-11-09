@@ -48,15 +48,13 @@ void whisper_coreml_free(struct whisper_coreml_context * ctx) {
 
 void whisper_coreml_encode(
         const whisper_coreml_context * ctx,
-                             int64_t   n_ctx,
-                             int64_t   n_mel,
                                float * mel,
                                float * out) {
     MLMultiArray * inMultiArray = [
         [MLMultiArray alloc] initWithDataPointer: mel
-                                           shape: @[@1, @(n_mel), @(n_ctx)]
+                                           shape: @[@1, @80, @3000]
                                         dataType: MLMultiArrayDataTypeFloat32
-                                         strides: @[@(n_ctx*n_mel), @(n_ctx), @1]
+                                         strides: @[@(240000), @(3000), @1]
                                      deallocator: nil
                                            error: nil
     ];
