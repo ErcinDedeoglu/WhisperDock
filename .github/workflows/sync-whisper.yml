@@ -111,7 +111,7 @@ jobs:
     steps:
       - name: 🛒 Checkout repository for sync
         run: |
-          git clone https://x-access-token:${{ secrets.PAT }}@github.com/ErcinDedeoglu/stt.git .
+          git clone https://x-access-token:${{ secrets.PAT }}@github.com/ErcinDedeoglu/whisperdock.git .
 
       - name: 🔄 Sync whisper.cpp repository to src/whisper
         run: |
