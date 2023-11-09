@@ -2,7 +2,7 @@
 
 This repository hosts the Dockerized speech-to-text transcription service, which utilizes Whisper C++ alongside Python to provide an API for audio file transcription.
 
-<div align="center"><img src="https://github.com/ErcinDedeoglu/stt/assets/6512072/0f63bc19-7662-4a03-b7bb-dea8bfbb44d7" width="400"></div>
+<div align="center"><img src="/assets/logo.png" width="400"></div>
 
 ## Background and Motivation
 
