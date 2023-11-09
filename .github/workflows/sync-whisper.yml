@@ -1,0 +1,141 @@
+name: 🤫 Sync whisper.cpp
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  sync-by-tag:
+    name: 🏷️ Sync Repository by Latest Tag
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+    steps:
+      - name: 🏷️ Get latest tag name from the external repository
+        run: |
+          LATEST_TAG=$(git ls-remote --tags --sort="v:refname" https://github.com/ggerganov/whisper.cpp.git | tail -n1 | sed 's/.*refs\/tags\///; s/\^{}//')
+          echo "LATEST_TAG=$LATEST_TAG" >> $GITHUB_ENV
+
+      - name: 🛒 Checkout main repository for TARGET_REPOSITORY
+        run: |
+          git clone https://x-access-token:${{ secrets.PAT }}@github.com/${{ github.repository }} $HOME/TARGET_REPOSITORY
+
+      - name: 🔀 Create/Checkout the branch by NAME
+        run: |
+          cd $HOME/TARGET_REPOSITORY
+          git fetch origin
+          echo "Latest Branch Name: $LATEST_TAG"
+          
+          # Check if branch exists on local.
+          if git show-ref --verify --quiet refs/heads/$LATEST_TAG; then
+            echo "Branch exists locally, checking out."
+            git checkout $LATEST_TAG
+          else
+            echo "Branch does not exist locally. Checking if it exists in the remote."
+            # Check if branch exists on remote.
+            if git ls-remote --heads origin | grep $LATEST_TAG; then
+              echo "Branch found in remote, checking out."
+              git checkout -b $LATEST_TAG origin/$LATEST_TAG
+            else
+              echo "Branch not found in remote, creating a new one from origin/main."
+              git checkout -b $LATEST_TAG origin/main
+              # No need to reset the branch if it's newly created from origin/main.
+            fi
+          fi
+
+      - name: 🧹 Clean TARGET_REPOSITORY (keep .git)
+        run: |
+          cd $HOME/TARGET_REPOSITORY
+          shopt -s extglob
+          rm -rf !(.|..|.git)
+
+      - name: 🛒 Checkout main repository for MAIN_REPOSITORY
+        run: |
+          git clone https://x-access-token:${{ secrets.PAT }}@github.com/${{ github.repository }} $HOME/MAIN_REPOSITORY
+
+      - name: 🗑️ Clean MAIN_REPOSITORY (remove .git and whisper)
+        run: |
+          cd $HOME/MAIN_REPOSITORY
+          shopt -s extglob
+          rm -rf .git
+          rm -rf src/whisper
+
+      - name: 🔄 Sync MAIN_REPOSITORY to TARGET_REPOSITORY
+        run: |
+          cd $HOME/MAIN_REPOSITORY
+          shopt -s dotglob
+          rsync -av --progress $HOME/MAIN_REPOSITORY/ $HOME/TARGET_REPOSITORY/
+
+      - name: 🔄 Clone whisper.cpp by tag
+        run: |
+          git clone --branch $LATEST_TAG --depth 1 https://github.com/ggerganov/whisper.cpp.git $HOME/LATEST_TAG_WHISPER_CPP
+
+      - name: 🧼 Clean LATEST_TAG_WHISPER_CPP (remove unnecessary files)
+        run: |
+          cd $HOME/LATEST_TAG_WHISPER_CPP
+          shopt -s extglob
+          rm -rf .git
+          rm -rf .devops
+          rm -rf .github
+          rm -rf docs
+          rm -rf tests
+          rm -rf samples
+          rm -f LICENSE
+          rm -f .gitignore
+          rm -f .gitmodules
+          find . -name "*.md" -exec rm {} \;
+          find . -name "*.txt" -exec rm {} \;
+
+      - name: 🚚 Move LATEST_TAG_WHISPER_CPP to TARGET_REPOSITORY/src/whisper
+        run: |
+          cd $HOME/LATEST_TAG_WHISPER_CPP
+          shopt -s dotglob
+          mkdir -p $HOME/TARGET_REPOSITORY/src/whisper
+          mv -f * $HOME/TARGET_REPOSITORY/src/whisper
+
+      - name: 💾 Commit and push changes to TARGET_REPOSITORY
+        run: |
+          cd $HOME/TARGET_REPOSITORY
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add --all
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Sync with whisper.cpp $LATEST_TAG 🚀" && git push --set-upstream origin $LATEST_TAG)
+
+  sync-latest-commit:
+    name: 🔄 Sync Repository with Latest Commit
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+    steps:
+      - name: 🛒 Checkout repository for sync
+        run: |
+          git clone https://x-access-token:${{ secrets.PAT }}@github.com/ErcinDedeoglu/stt.git .
+
+      - name: 🔄 Sync whisper.cpp repository to src/whisper
+        run: |
+          mkdir -p src
+          rm -rf src/whisper
+          git clone https://github.com/ggerganov/whisper.cpp.git src/whisper
+          rm -rf src/whisper/.git
+          rm -rf src/whisper/.devops
+          rm -rf src/whisper/.github
+          rm -rf src/whisper/docs
+          rm -rf src/whisper/tests
+          rm -rf src/whisper/samples
+          rm -f src/whisper/LICENSE
+          rm -f src/whisper/.gitignore
+          rm -f src/whisper/.gitmodules
+          find src/whisper -name "*.md" -exec rm {} \;
+          find src/whisper -name "*.txt" -exec rm {} \;
+
+      - name: 💾 Commit and push sync changes
+        run: |
+          git config --local user.name 'github-actions[bot]'
+          git config --local user.email 'github-actions[bot]@users.noreply.github.com'
+          git add src/whisper
+          git commit -m "Sync with whisper.cpp 🚀" -a || echo "No changes to commit 🛑"
+          git push origin 'main'
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT }}
