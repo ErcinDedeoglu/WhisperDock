@@ -1,14 +1,14 @@
-# [Speech-to-Text (STT) Transcription Service 🎤](https://github.com/ErcinDedeoglu/stt)
+# [WhisperDock - Speech-to-Text Service 🎤](https://github.com/ErcinDedeoglu/WhisperDock)
 
 This repository hosts the Dockerized speech-to-text transcription service, which utilizes Whisper C++ alongside Python to provide an API for audio file transcription.
 
-<div align="center"><img src="/assets/logo.png" width="400"></div>
+<div align="center"><img src="https://github.com/ErcinDedeoglu/WhisperDock/raw/main/assets/logo.png" width="400"></div>
 
 ## Background and Motivation
 
-In the rapidly advancing field of machine learning, access to efficient and robust tools for everyday applications is essential. Speech-to-text transcription is one of the areas that has seen significant improvements, but deploying these models quickly and efficiently remains a challenge. Whisper C++, a high-performance transcription tool, has emerged as a powerful option, yet it still requires a streamlined pathway to deployment.
+Access to efficient and robust tools for everyday applications is essential in the rapidly advancing field of machine learning. Speech-to-text transcription is one of the areas that has seen significant improvements, but deploying these models quickly and efficiently remains a challenge. Whisper C++, a high-performance transcription tool, has emerged as a powerful option, yet it still requires a streamlined pathway to deployment.
 
-This repository was created out of a necessity to bridge the gap between the development of speech-to-text models and their deployment in real-world applications. Many existing solutions require extensive setup, intricate knowledge of systems, and can be time-consuming to deploy, creating a barrier for developers, researchers, and businesses who want to integrate transcription capabilities into their services.
+This repository was created out of a necessity to bridge the gap between the development of speech-to-text models and their deployment in real-world applications. Many existing solutions require extensive setup and intricate knowledge of systems and can be time-consuming to deploy, creating a barrier for developers, researchers, and businesses who want to integrate transcription capabilities into their services.
 
 The Speech-to-Text Transcription Service aims to provide a fast, reliable, and easy-to-use solution for deploying Whisper C++ models. By containerizing the service with Docker, we significantly reduce the complexity of deployment and make it possible to launch a transcription service that is both scalable and accessible.
 
@@ -17,7 +17,7 @@ Here are some of the key motivations behind this project:
 - **Speed of Deployment**: By providing a Dockerized solution, we enable rapid deployment of the transcription service, allowing users to go from zero to a fully functioning service in minutes.
 - **Ease of Use**: The provided APIs and Docker setup are designed to be as simple as possible, requiring minimal configuration and allowing for easy integration into existing workflows.
 - **Accessibility**: Making Whisper C++ easily deployable opens up more opportunities for developers and organizations of all sizes to utilize state-of-the-art transcription technology.
-- **Continuous Integration and Delivery**: With GitHub Actions, updates and improvements are integrated seamlessly, ensuring that the service remains up-to-date with the latest advancements from the Whisper C++ repository.
+- **Continuous Integration and Delivery**: With GitHub Actions, updates, and improvements are integrated seamlessly, ensuring the service remains up-to-date with the latest advancements from the Whisper C++ repository.
 
 In contributing to this repository, I hope to empower individuals and organizations to harness the capabilities of Whisper C++ without the overhead of complex deployment processes, thus fostering innovation and development in the field of speech recognition.
 
@@ -31,14 +31,14 @@ For quick deployment, use the Docker images provided in the Docker registry.
 
 For the latest stable version:
 ```bash
-docker pull dublok/stt:latest
-docker run -p 5000:5000 dublok/stt:latest
+docker pull dublok/whisperdock:latest
+docker run -p 5000:5000 dublok/whisperdock:latest
 ```
 
 For the nightly build (unstable but with early access to new features):
 ```bash
-docker pull dublok/stt:main
-docker run -p 5000:5000 dublok/stt:main
+docker pull dublok/whisperdock:main
+docker run -p 5000:5000 dublok/whisperdock:main
 ```
 
 The service should now be accessible at `http://localhost:5000`.
@@ -47,17 +47,17 @@ The service should now be accessible at `http://localhost:5000`.
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/ErcinDedeoglu/stt
+git clone https://github.com/ErcinDedeoglu/WhisperDock
 ```
 
 2. Build the Docker image:
 ```bash
-docker build -t stt-service .
+docker build -t whisperdock .
 ```
 
 3. Run the container:
 ```bash
-docker run -p 5000:5000 stt-service
+docker run -p 5000:5000 whisperdock
 ```
 
 ---
@@ -70,7 +70,7 @@ To transcribe audio, make a POST request to the `/transcribe` endpoint with the 
 curl -X POST -F 'file=@/path/to/your/audio.wav' http://localhost:5000/transcribe
 ```
 
-Make sure your audio file is in WAV format with a sample rate of 16kHz.
+Ensure your audio file is in WAV format with a sample rate of 16kHz.
 
 ### Example Response
 
@@ -82,7 +82,7 @@ Upon successful transcription, the service will return a JSON response containin
     {
       "start_time": "00:00:00.000",
       "end_time": "00:00:03.000",
-      "text": "Welcome to our speech to text service."
+      "text": "Welcome to our speech-to-text service."
     },
     {
       "start_time": "00:00:03.500",
@@ -133,5 +133,4 @@ This project uses GitHub Actions for continuous integration, which automates the
 
 ## License
 
-This Speech-to-Text Transcription Service is made available under the [CC0 1.0 Universal](LICENSE) public domain dedication.
-
+This Speech-to-Text Transcription Service is available under the [CC0 1.0 Universal](https://github.com/ErcinDedeoglu/WhisperDock/blob/main/LICENSE) public domain dedication.

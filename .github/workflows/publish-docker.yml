@@ -47,12 +47,12 @@ jobs:
         run: |
           source $GITHUB_ENV
           # Always set the default tags
-          DEFAULT_TAGS="dublok/stt:${GITHUB_REF_NAME},dublok/stt:${SHA_SHORT}"
+          DEFAULT_TAGS="dublok/whisperdock:${GITHUB_REF_NAME},dublok/whisperdock:${SHA_SHORT}"
           echo "TAGS=${DEFAULT_TAGS}" >> $GITHUB_ENV
           
           # Check if GITHUB_REF_NAME starts with 'v' and if so, append 'latest'
           if [[ $GITHUB_REF_NAME == v* ]]; then
-            LATEST_TAGS="${DEFAULT_TAGS},dublok/stt:latest"
+            LATEST_TAGS="${DEFAULT_TAGS},dublok/whisperdock:latest"
             echo "TAGS=${LATEST_TAGS}" >> $GITHUB_ENV
           fi
 
