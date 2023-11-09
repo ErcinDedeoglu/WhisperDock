@@ -1,0 +1,71 @@
+name: 🐳 Docker Images
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  linux-build-and-push:
+    name: 🐧 Linux Docker Build and Push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🔍 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🛠️ Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: 🛠️ Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🖥️ Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      - name: 🏷️ Fetch Commit SHA
+        run: echo "SHA_SHORT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+      - name: 🏷️ Commit SHA
+        run: |
+          source $GITHUB_ENV
+          echo "SHA_SHORT: ${SHA_SHORT}"
+
+      - name: 🏷️ Extract Branch Name
+        run: echo "BRANCH_NAME=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_ENV
+
+      - name: 🏷️ Branch Name
+        run: |
+          source $GITHUB_ENV
+          echo "BRANCH_NAME: ${BRANCH_NAME}"
+
+      - name: 🏷️ Define Tags
+        run: |
+          source $GITHUB_ENV
+          # Always set the default tags
+          DEFAULT_TAGS="dublok/stt:${GITHUB_REF_NAME},dublok/stt:${SHA_SHORT}"
+          echo "TAGS=${DEFAULT_TAGS}" >> $GITHUB_ENV
+          
+          # Check if GITHUB_REF_NAME starts with 'v' and if so, append 'latest'
+          if [[ $GITHUB_REF_NAME == v* ]]; then
+            LATEST_TAGS="${DEFAULT_TAGS},dublok/stt:latest"
+            echo "TAGS=${LATEST_TAGS}" >> $GITHUB_ENV
+          fi
+
+      - name: 🏷️ Tags
+        run: |
+          source $GITHUB_ENV
+          echo "TAGS: ${TAGS}"
+
+      - name: 🛠️ Build and Push Docker Images
+        uses: docker/build-push-action@v5.0.0
+        with:
+          context: ./src
+          file: ./src/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64,linux/s390x
+          tags: ${{ env.TAGS }}
