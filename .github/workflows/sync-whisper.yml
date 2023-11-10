@@ -2,6 +2,11 @@ name: 🤫 Sync whisper.cpp
 
 on:
   workflow_dispatch:
+    inputs:
+      tag_override:
+        description: 'Override the latest tag (optional)'
+        required: false
+        default: ''
   schedule:
     - cron: '0 0 * * *'
 
@@ -14,9 +19,13 @@ jobs:
     runs-on: ubuntu-latest
     if: (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
     steps:
-      - name: 🏷️ Get latest tag name from the external repository
+      - name: 🏷️ Determine the tag to use
         run: |
-          LATEST_TAG=$(git ls-remote --tags --sort="v:refname" https://github.com/ggerganov/whisper.cpp.git | tail -n1 | sed 's/.*refs\/tags\///; s/\^{}//')
+          if [[ -z "${{ github.event.inputs.tag_override }}" ]]; then
+            LATEST_TAG=$(git ls-remote --tags --sort="v:refname" https://github.com/ggerganov/whisper.cpp.git | tail -n1 | sed 's/.*refs\/tags\///; s/\^{}//')
+          else
+            LATEST_TAG=${{ github.event.inputs.tag_override }}
+          fi
           echo "LATEST_TAG=$LATEST_TAG" >> $GITHUB_ENV
 
       - name: 🛒 Checkout main repository for TARGET_REPOSITORY
@@ -111,7 +120,7 @@ jobs:
     steps:
       - name: 🛒 Checkout repository for sync
         run: |
-          git clone https://x-access-token:${{ secrets.PAT }}@github.com/ErcinDedeoglu/whisperdock.git .
+          git clone https://x-access-token:${{ secrets.PAT }}@github.com/ErcinDedeoglu/WhisperDock.git .
 
       - name: 🔄 Sync whisper.cpp repository to src/whisper
         run: |
