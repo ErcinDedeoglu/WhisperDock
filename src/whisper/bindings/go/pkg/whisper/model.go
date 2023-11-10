@@ -94,7 +94,6 @@ func (model *model) NewContext() (Context, error) {
 	params.SetPrintRealtime(false)
 	params.SetPrintTimestamps(false)
 	params.SetThreads(runtime.NumCPU())
-	params.SetNoContext(true)
 
 	// Return new context
 	return newContext(model, params)

@@ -28,6 +28,31 @@ std::string g_transcribed   = "";
 
 std::vector<float> g_pcmf32;
 
+// compute similarity between two strings using Levenshtein distance
+static float similarity(const std::string & s0, const std::string & s1) {
+    const size_t len0 = s0.size() + 1;
+    const size_t len1 = s1.size() + 1;
+
+    std::vector<int> col(len1, 0);
+    std::vector<int> prevCol(len1, 0);
+
+    for (size_t i = 0; i < len1; i++) {
+        prevCol[i] = i;
+    }
+
+    for (size_t i = 0; i < len0; i++) {
+        col[0] = i;
+        for (size_t j = 1; j < len1; j++) {
+            col[j] = std::min(std::min(1 + col[j - 1], 1 + prevCol[j]), prevCol[j - 1] + (s0[i - 1] == s1[j - 1] ? 0 : 1));
+        }
+        col.swap(prevCol);
+    }
+
+    const float dist = prevCol[len1 - 1];
+
+    return 1.0f - (dist / std::max(s0.size(), s1.size()));
+}
+
 void command_set_status(const std::string & status) {
     std::lock_guard<std::mutex> lock(g_mutex);
     g_status = status;
@@ -243,7 +268,7 @@ EMSCRIPTEN_BINDINGS(command) {
     emscripten::function("init", emscripten::optional_override([](const std::string & path_model) {
         for (size_t i = 0; i < g_contexts.size(); ++i) {
             if (g_contexts[i] == nullptr) {
-                g_contexts[i] = whisper_init_from_file_with_params(path_model.c_str(), whisper_context_default_params());
+                g_contexts[i] = whisper_init_from_file(path_model.c_str());
                 if (g_contexts[i] != nullptr) {
                     g_running = true;
                     if (g_worker.joinable()) {

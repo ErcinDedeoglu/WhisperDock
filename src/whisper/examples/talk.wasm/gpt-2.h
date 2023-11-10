@@ -2,11 +2,17 @@
 
 // TODO: Change to C-style API and move to ./examples for easy reuse.
 
-#include "common.h"
-
 #include <vector>
 #include <map>
 #include <string>
+
+struct gpt_vocab {
+    using id    = int32_t;
+    using token = std::string;
+
+    std::map<token, id> token_to_id;
+    std::map<id, token> id_to_token;
+};
 
 struct gpt2_context;
 

@@ -6,13 +6,13 @@
 #src="https://ggml.ggerganov.com"
 #pfx="ggml-model-whisper"
 
-src="https://huggingface.co/ggerganov/whisper.cpp"
+src="https://huggingface.co/datasets/ggerganov/whisper.cpp"
 pfx="resolve/main/ggml"
 
 # get the path of this script
 function get_script_path() {
     if [ -x "$(command -v realpath)" ]; then
-        echo "$(dirname "$(realpath "$0")")"
+        echo "$(dirname $(realpath $0))"
     else
         local ret="$(cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P)"
         echo "$ret"
@@ -22,29 +22,7 @@ function get_script_path() {
 models_path="$(get_script_path)"
 
 # Whisper models
-models=( 
-    "tiny.en"
-    "tiny"
-    "tiny-q5_1"
-    "tiny.en-q5_1"
-    "base.en"
-    "base"
-    "base-q5_1"
-    "base.en-q5_1"
-    "small.en"
-    "small.en-tdrz"
-    "small"
-    "small-q5_1"
-    "small.en-q5_1"
-    "medium"
-    "medium.en"
-    "medium-q5_0"
-    "medium.en-q5_0"
-    "large-v1"
-    "large-v2"
-    "large"
-    "large-q5_0"
-)
+models=( "tiny.en" "tiny" "base.en" "base" "small.en" "small" "medium.en" "medium" "large-v1" "large" )
 
 # list available models
 function list_models {
@@ -72,17 +50,11 @@ if [[ ! " ${models[@]} " =~ " ${model} " ]]; then
     exit 1
 fi
 
-# check if model contains `tdrz` and update the src and pfx accordingly
-if [[ $model == *"tdrz"* ]]; then
-    src="https://huggingface.co/akashmjn/tinydiarize-whisper.cpp"
-    pfx="resolve/main/ggml"
-fi
-
 # download ggml model
 
 printf "Downloading ggml model $model from '$src' ...\n"
 
-cd "$models_path"
+cd $models_path
 
 if [ -f "ggml-$model.bin" ]; then
     printf "Model $model already exists. Skipping download.\n"
@@ -90,7 +62,7 @@ if [ -f "ggml-$model.bin" ]; then
 fi
 
 if [ -x "$(command -v wget)" ]; then
-    wget --no-config --quiet --show-progress -O ggml-$model.bin $src/$pfx-$model.bin
+    wget --quiet --show-progress -O ggml-$model.bin $src/$pfx-$model.bin
 elif [ -x "$(command -v curl)" ]; then
     curl -L --output ggml-$model.bin $src/$pfx-$model.bin
 else

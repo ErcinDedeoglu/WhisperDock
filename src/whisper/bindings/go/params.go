@@ -19,10 +19,6 @@ func (p *Params) SetTranslate(v bool) {
 	p.translate = toBool(v)
 }
 
-func (p *Params) SetSplitOnWord(v bool) {
-	p.split_on_word = toBool(v)
-}
-
 func (p *Params) SetNoContext(v bool) {
 	p.no_context = toBool(v)
 }
@@ -109,18 +105,9 @@ func (p *Params) SetMaxSegmentLength(n int) {
 	p.max_len = C.int(n)
 }
 
-func (p *Params) SetTokenTimestamps(b bool) {
-	p.token_timestamps = toBool(b)
-}
-
 // Set max tokens per segment (0 = no limit)
 func (p *Params) SetMaxTokensPerSegment(n int) {
 	p.max_tokens = C.int(n)
-}
-
-// Set audio encoder context
-func (p *Params) SetAudioCtx(n int) {
-	p.audio_ctx = C.int(n)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -146,7 +133,6 @@ func (p *Params) String() string {
 	str += fmt.Sprintf(" n_max_text_ctx=%d", p.n_max_text_ctx)
 	str += fmt.Sprintf(" offset_ms=%d", p.offset_ms)
 	str += fmt.Sprintf(" duration_ms=%d", p.duration_ms)
-	str += fmt.Sprintf(" audio_ctx=%d", p.audio_ctx)
 	if p.translate {
 		str += " translate"
 	}

@@ -1,5 +1,4 @@
 import Foundation
-import whisper
 
 enum WhisperError: Error {
     case couldNotInitializeContext
@@ -56,12 +55,7 @@ actor WhisperContext {
     }
     
     static func createContext(path: String) throws -> WhisperContext {
-        var params = whisper_context_default_params()
-#if targetEnvironment(simulator)
-        params.use_gpu = false
-        print("Running on the simulator, using CPU")
-#endif
-        let context = whisper_init_from_file_with_params(path, params)
+        let context = whisper_init_from_file(path)
         if let context {
             return WhisperContext(context: context)
         } else {

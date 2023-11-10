@@ -23,9 +23,7 @@ void bench_main(size_t index) {
 
     fprintf(stderr, "%s: running benchmark with %d threads - please wait...\n", __func__, n_threads);
 
-    const int n_mels = whisper_model_n_mels(ctx);
-
-    if (int ret = whisper_set_mel(ctx, nullptr, 0, n_mels)) {
+    if (int ret = whisper_set_mel(ctx, nullptr, 0, WHISPER_N_MEL)) {
         fprintf(stderr, "error: failed to set mel: %d\n", ret);
         return;
     }
@@ -59,7 +57,7 @@ EMSCRIPTEN_BINDINGS(bench) {
     emscripten::function("init", emscripten::optional_override([](const std::string & path_model) {
         for (size_t i = 0; i < g_contexts.size(); ++i) {
             if (g_contexts[i] == nullptr) {
-                g_contexts[i] = whisper_init_from_file_with_params(path_model.c_str(), whisper_context_default_params());
+                g_contexts[i] = whisper_init_from_file(path_model.c_str());
                 if (g_contexts[i] != nullptr) {
                     if (g_worker.joinable()) {
                         g_worker.join();

@@ -17,14 +17,14 @@ import (
 // CONSTANTS
 
 const (
-	srcUrl  = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main" // The location of the models
-	srcExt  = ".bin"                                                      // Filename extension
-	bufSize = 1024 * 64                                                   // Size of the buffer used for downloading the model
+	srcUrl  = "https://huggingface.co/datasets/ggerganov/whisper.cpp/resolve/main" // The location of the models
+	srcExt  = ".bin"                                                               // Filename extension
+	bufSize = 1024 * 64                                                            // Size of the buffer used for downloading the model
 )
 
 var (
 	// The models which will be downloaded, if no model is specified as an argument
-	modelNames = []string{"ggml-tiny.en", "ggml-tiny", "ggml-base.en", "ggml-base", "ggml-small.en", "ggml-small", "ggml-medium.en", "ggml-medium", "ggml-large-v1", "ggml-large-v2", "ggml-large"}
+	modelNames = []string{"ggml-tiny.en", "ggml-tiny", "ggml-base.en", "ggml-base", "ggml-small.en", "ggml-small", "ggml-medium.en", "ggml-medium", "ggml-large-v1", "ggml-large"}
 )
 
 var (

@@ -6,8 +6,8 @@
 // ref: https://github.com/ggerganov/whisper.cpp/issues/171
 //
 
-#include "common-sdl.h"
 #include "common.h"
+#include "common-sdl.h"
 #include "whisper.h"
 
 #include <sstream>
@@ -38,7 +38,6 @@ struct whisper_params {
     bool print_special = false;
     bool print_energy  = false;
     bool no_timestamps = true;
-    bool use_gpu       = true;
 
     std::string language  = "en";
     std::string model     = "models/ggml-base.en.bin";
@@ -69,7 +68,6 @@ bool whisper_params_parse(int argc, char ** argv, whisper_params & params) {
         else if (arg == "-tr"  || arg == "--translate")     { params.translate     = true; }
         else if (arg == "-ps"  || arg == "--print-special") { params.print_special = true; }
         else if (arg == "-pe"  || arg == "--print-energy")  { params.print_energy  = true; }
-        else if (arg == "-ng"  || arg == "--no-gpu")        { params.use_gpu       = false; }
         else if (arg == "-l"   || arg == "--language")      { params.language      = argv[++i]; }
         else if (arg == "-m"   || arg == "--model")         { params.model         = argv[++i]; }
         else if (arg == "-f"   || arg == "--file")          { params.fname_out     = argv[++i]; }
@@ -103,7 +101,6 @@ void whisper_print_usage(int /*argc*/, char ** argv, const whisper_params & para
     fprintf(stderr, "  -tr,        --translate      [%-7s] translate from source language to english\n",   params.translate ? "true" : "false");
     fprintf(stderr, "  -ps,        --print-special  [%-7s] print special tokens\n",                        params.print_special ? "true" : "false");
     fprintf(stderr, "  -pe,        --print-energy   [%-7s] print sound energy (for debugging)\n",          params.print_energy ? "true" : "false");
-    fprintf(stderr, "  -ng,        --no-gpu         [%-7s] disable GPU\n",                                 params.use_gpu ? "false" : "true");
     fprintf(stderr, "  -l LANG,    --language LANG  [%-7s] spoken language\n",                             params.language.c_str());
     fprintf(stderr, "  -m FNAME,   --model FNAME    [%-7s] model path\n",                                  params.model.c_str());
     fprintf(stderr, "  -f FNAME,   --file FNAME     [%-7s] text output file name\n",                       params.fname_out.c_str());
@@ -164,6 +161,31 @@ std::string transcribe(whisper_context * ctx, const whisper_params & params, con
     t_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start).count();
 
     return result;
+}
+
+// compute similarity between two strings using Levenshtein distance
+float similarity(const std::string & s0, const std::string & s1) {
+    const size_t len0 = s0.size() + 1;
+    const size_t len1 = s1.size() + 1;
+
+    std::vector<int> col(len1, 0);
+    std::vector<int> prevCol(len1, 0);
+
+    for (size_t i = 0; i < len1; i++) {
+        prevCol[i] = i;
+    }
+
+    for (size_t i = 0; i < len0; i++) {
+        col[0] = i;
+        for (size_t j = 1; j < len1; j++) {
+            col[j] = std::min(std::min(1 + col[j - 1], 1 + prevCol[j]), prevCol[j - 1] + (s0[i - 1] == s1[j - 1] ? 0 : 1));
+        }
+        col.swap(prevCol);
+    }
+
+    const float dist = prevCol[len1 - 1];
+
+    return 1.0f - (dist / std::max(s0.size(), s1.size()));
 }
 
 std::vector<std::string> read_allowed_commands(const std::string & fname) {
@@ -613,10 +635,7 @@ int main(int argc, char ** argv) {
 
     // whisper init
 
-    struct whisper_context_params cparams;
-    cparams.use_gpu = params.use_gpu;
-
-    struct whisper_context * ctx = whisper_init_from_file_with_params(params.model.c_str(), cparams);
+    struct whisper_context * ctx = whisper_init_from_file(params.model.c_str());
 
     // print some info about the processing
     {

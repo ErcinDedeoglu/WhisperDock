@@ -87,7 +87,7 @@ static VALUE ruby_whisper_initialize(int argc, VALUE *argv, VALUE self) {
   if (!rb_respond_to(whisper_model_file_path, rb_intern("to_s"))) {
     rb_raise(rb_eRuntimeError, "Expected file path to model to initialize Whisper::Context");
   }
-  rw->context = whisper_init_from_file_with_params(StringValueCStr(whisper_model_file_path), whisper_context_default_params());
+  rw->context = whisper_init_from_file(StringValueCStr(whisper_model_file_path));
   if (rw->context == nullptr) {
     rb_raise(rb_eRuntimeError, "error: failed to initialize whisper context");
   }
@@ -199,7 +199,7 @@ static VALUE ruby_whisper_transcribe(int argc, VALUE *argv, VALUE self) {
   {
     static bool is_aborted = false; // NOTE: this should be atomic to avoid data race
 
-    rwp->params.encoder_begin_callback = [](struct whisper_context * /*ctx*/, struct whisper_state * /*state*/, void * user_data) {
+    rwp->params.encoder_begin_callback = [](struct whisper_context * /*ctx*/, void * user_data) {
       bool is_aborted = *(bool*)user_data;
       return !is_aborted;
     };

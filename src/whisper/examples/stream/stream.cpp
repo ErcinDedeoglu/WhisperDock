@@ -2,8 +2,9 @@
 //
 // A very quick-n-dirty implementation serving mainly as a proof of concept.
 //
-#include "common-sdl.h"
+
 #include "common.h"
+#include "common-sdl.h"
 #include "whisper.h"
 
 #include <cassert>
@@ -12,7 +13,6 @@
 #include <thread>
 #include <vector>
 #include <fstream>
-
 
 //  500 -> 00:05.000
 // 6000 -> 01:00.000
@@ -43,13 +43,9 @@ struct whisper_params {
 
     bool speed_up      = false;
     bool translate     = false;
-    bool no_fallback   = false;
     bool print_special = false;
     bool no_context    = true;
     bool no_timestamps = false;
-    bool tinydiarize   = false;
-    bool save_audio    = false; // save audio to wav file
-    bool use_gpu       = true;
 
     std::string language  = "en";
     std::string model     = "models/ggml-base.en.bin";
@@ -66,27 +62,22 @@ bool whisper_params_parse(int argc, char ** argv, whisper_params & params) {
             whisper_print_usage(argc, argv, params);
             exit(0);
         }
-        else if (arg == "-t"    || arg == "--threads")       { params.n_threads     = std::stoi(argv[++i]); }
-        else if (                  arg == "--step")          { params.step_ms       = std::stoi(argv[++i]); }
-        else if (                  arg == "--length")        { params.length_ms     = std::stoi(argv[++i]); }
-        else if (                  arg == "--keep")          { params.keep_ms       = std::stoi(argv[++i]); }
-        else if (arg == "-c"    || arg == "--capture")       { params.capture_id    = std::stoi(argv[++i]); }
-        else if (arg == "-mt"   || arg == "--max-tokens")    { params.max_tokens    = std::stoi(argv[++i]); }
-        else if (arg == "-ac"   || arg == "--audio-ctx")     { params.audio_ctx     = std::stoi(argv[++i]); }
-        else if (arg == "-vth"  || arg == "--vad-thold")     { params.vad_thold     = std::stof(argv[++i]); }
-        else if (arg == "-fth"  || arg == "--freq-thold")    { params.freq_thold    = std::stof(argv[++i]); }
-        else if (arg == "-su"   || arg == "--speed-up")      { params.speed_up      = true; }
-        else if (arg == "-tr"   || arg == "--translate")     { params.translate     = true; }
-        else if (arg == "-nf"   || arg == "--no-fallback")   { params.no_fallback   = true; }
-        else if (arg == "-ps"   || arg == "--print-special") { params.print_special = true; }
-        else if (arg == "-kc"   || arg == "--keep-context")  { params.no_context    = false; }
-        else if (arg == "-l"    || arg == "--language")      { params.language      = argv[++i]; }
-        else if (arg == "-m"    || arg == "--model")         { params.model         = argv[++i]; }
-        else if (arg == "-f"    || arg == "--file")          { params.fname_out     = argv[++i]; }
-        else if (arg == "-tdrz" || arg == "--tinydiarize")   { params.tinydiarize   = true; }
-        else if (arg == "-sa"   || arg == "--save-audio")    { params.save_audio    = true; }
-        else if (arg == "-ng"   || arg == "--no-gpu")        { params.use_gpu       = false; }
-
+        else if (arg == "-t"   || arg == "--threads")       { params.n_threads     = std::stoi(argv[++i]); }
+        else if (                 arg == "--step")          { params.step_ms       = std::stoi(argv[++i]); }
+        else if (                 arg == "--length")        { params.length_ms     = std::stoi(argv[++i]); }
+        else if (                 arg == "--keep")          { params.keep_ms       = std::stoi(argv[++i]); }
+        else if (arg == "-c"   || arg == "--capture")       { params.capture_id    = std::stoi(argv[++i]); }
+        else if (arg == "-mt"  || arg == "--max-tokens")    { params.max_tokens    = std::stoi(argv[++i]); }
+        else if (arg == "-ac"  || arg == "--audio-ctx")     { params.audio_ctx     = std::stoi(argv[++i]); }
+        else if (arg == "-vth" || arg == "--vad-thold")     { params.vad_thold     = std::stof(argv[++i]); }
+        else if (arg == "-fth" || arg == "--freq-thold")    { params.freq_thold    = std::stof(argv[++i]); }
+        else if (arg == "-su"  || arg == "--speed-up")      { params.speed_up      = true; }
+        else if (arg == "-tr"  || arg == "--translate")     { params.translate     = true; }
+        else if (arg == "-ps"  || arg == "--print-special") { params.print_special = true; }
+        else if (arg == "-kc"  || arg == "--keep-context")  { params.no_context    = false; }
+        else if (arg == "-l"   || arg == "--language")      { params.language      = argv[++i]; }
+        else if (arg == "-m"   || arg == "--model")         { params.model         = argv[++i]; }
+        else if (arg == "-f"   || arg == "--file")          { params.fname_out     = argv[++i]; }
         else {
             fprintf(stderr, "error: unknown argument: %s\n", arg.c_str());
             whisper_print_usage(argc, argv, params);
@@ -103,26 +94,22 @@ void whisper_print_usage(int /*argc*/, char ** argv, const whisper_params & para
     fprintf(stderr, "\n");
     fprintf(stderr, "options:\n");
     fprintf(stderr, "  -h,       --help          [default] show this help message and exit\n");
-    fprintf(stderr, "  -t N,     --threads N     [%-7d] number of threads to use during computation\n",    params.n_threads);
-    fprintf(stderr, "            --step N        [%-7d] audio step size in milliseconds\n",                params.step_ms);
-    fprintf(stderr, "            --length N      [%-7d] audio length in milliseconds\n",                   params.length_ms);
-    fprintf(stderr, "            --keep N        [%-7d] audio to keep from previous step in ms\n",         params.keep_ms);
-    fprintf(stderr, "  -c ID,    --capture ID    [%-7d] capture device ID\n",                              params.capture_id);
-    fprintf(stderr, "  -mt N,    --max-tokens N  [%-7d] maximum number of tokens per audio chunk\n",       params.max_tokens);
-    fprintf(stderr, "  -ac N,    --audio-ctx N   [%-7d] audio context size (0 - all)\n",                   params.audio_ctx);
-    fprintf(stderr, "  -vth N,   --vad-thold N   [%-7.2f] voice activity detection threshold\n",           params.vad_thold);
-    fprintf(stderr, "  -fth N,   --freq-thold N  [%-7.2f] high-pass frequency cutoff\n",                   params.freq_thold);
-    fprintf(stderr, "  -su,      --speed-up      [%-7s] speed up audio by x2 (reduced accuracy)\n",        params.speed_up ? "true" : "false");
-    fprintf(stderr, "  -tr,      --translate     [%-7s] translate from source language to english\n",      params.translate ? "true" : "false");
-    fprintf(stderr, "  -nf,      --no-fallback   [%-7s] do not use temperature fallback while decoding\n", params.no_fallback ? "true" : "false");
-    fprintf(stderr, "  -ps,      --print-special [%-7s] print special tokens\n",                           params.print_special ? "true" : "false");
-    fprintf(stderr, "  -kc,      --keep-context  [%-7s] keep context between audio chunks\n",              params.no_context ? "false" : "true");
-    fprintf(stderr, "  -l LANG,  --language LANG [%-7s] spoken language\n",                                params.language.c_str());
-    fprintf(stderr, "  -m FNAME, --model FNAME   [%-7s] model path\n",                                     params.model.c_str());
-    fprintf(stderr, "  -f FNAME, --file FNAME    [%-7s] text output file name\n",                          params.fname_out.c_str());
-    fprintf(stderr, "  -tdrz,    --tinydiarize   [%-7s] enable tinydiarize (requires a tdrz model)\n",     params.tinydiarize ? "true" : "false");
-    fprintf(stderr, "  -sa,      --save-audio    [%-7s] save the recorded audio to a file\n",              params.save_audio ? "true" : "false");
-    fprintf(stderr, "  -ng,      --no-gpu        [%-7s] disable GPU inference\n",                          params.use_gpu ? "false" : "true");
+    fprintf(stderr, "  -t N,     --threads N     [%-7d] number of threads to use during computation\n", params.n_threads);
+    fprintf(stderr, "            --step N        [%-7d] audio step size in milliseconds\n",             params.step_ms);
+    fprintf(stderr, "            --length N      [%-7d] audio length in milliseconds\n",                params.length_ms);
+    fprintf(stderr, "            --keep N        [%-7d] audio to keep from previous step in ms\n",      params.keep_ms);
+    fprintf(stderr, "  -c ID,    --capture ID    [%-7d] capture device ID\n",                           params.capture_id);
+    fprintf(stderr, "  -mt N,    --max-tokens N  [%-7d] maximum number of tokens per audio chunk\n",    params.max_tokens);
+    fprintf(stderr, "  -ac N,    --audio-ctx N   [%-7d] audio context size (0 - all)\n",                params.audio_ctx);
+    fprintf(stderr, "  -vth N,   --vad-thold N   [%-7.2f] voice activity detection threshold\n",        params.vad_thold);
+    fprintf(stderr, "  -fth N,   --freq-thold N  [%-7.2f] high-pass frequency cutoff\n",                params.freq_thold);
+    fprintf(stderr, "  -su,      --speed-up      [%-7s] speed up audio by x2 (reduced accuracy)\n",     params.speed_up ? "true" : "false");
+    fprintf(stderr, "  -tr,      --translate     [%-7s] translate from source language to english\n",   params.translate ? "true" : "false");
+    fprintf(stderr, "  -ps,      --print-special [%-7s] print special tokens\n",                        params.print_special ? "true" : "false");
+    fprintf(stderr, "  -kc,      --keep-context  [%-7s] keep context between audio chunks\n",           params.no_context ? "false" : "true");
+    fprintf(stderr, "  -l LANG,  --language LANG [%-7s] spoken language\n",                             params.language.c_str());
+    fprintf(stderr, "  -m FNAME, --model FNAME   [%-7s] model path\n",                                  params.model.c_str());
+    fprintf(stderr, "  -f FNAME, --file FNAME    [%-7s] text output file name\n",                       params.fname_out.c_str());
     fprintf(stderr, "\n");
 }
 
@@ -160,16 +147,14 @@ int main(int argc, char ** argv) {
     audio.resume();
 
     // whisper init
-    if (params.language != "auto" && whisper_lang_id(params.language.c_str()) == -1){
+
+    if (whisper_lang_id(params.language.c_str()) == -1) {
         fprintf(stderr, "error: unknown language '%s'\n", params.language.c_str());
         whisper_print_usage(argc, argv, params);
         exit(0);
     }
 
-    struct whisper_context_params cparams;
-    cparams.use_gpu = params.use_gpu;
-
-    struct whisper_context * ctx = whisper_init_from_file_with_params(params.model.c_str(), cparams);
+    struct whisper_context * ctx = whisper_init_from_file(params.model.c_str());
 
     std::vector<float> pcmf32    (n_samples_30s, 0.0f);
     std::vector<float> pcmf32_old;
@@ -220,28 +205,14 @@ int main(int argc, char ** argv) {
         }
     }
 
-    wav_writer wavWriter;
-    // save wav file
-    if (params.save_audio) {
-        // Get current date/time for filename
-        time_t now = time(0);
-        char buffer[80];
-        strftime(buffer, sizeof(buffer), "%Y%m%d%H%M%S", localtime(&now));
-        std::string filename = std::string(buffer) + ".wav";
-
-        wavWriter.open(filename, WHISPER_SAMPLE_RATE, 16, 1);
-    }
-    printf("[Start speaking]\n");
+    printf("[Start speaking]");
     fflush(stdout);
 
-    auto t_last  = std::chrono::high_resolution_clock::now();
+          auto t_last  = std::chrono::high_resolution_clock::now();
     const auto t_start = t_last;
 
     // main audio loop
     while (is_running) {
-        if (params.save_audio) {
-            wavWriter.write(pcmf32_new.data(), pcmf32_new.size());
-        }
         // handle Ctrl + C
         is_running = sdl_poll_events();
 
@@ -317,6 +288,7 @@ int main(int argc, char ** argv) {
             wparams.print_realtime   = false;
             wparams.print_timestamps = !params.no_timestamps;
             wparams.translate        = params.translate;
+            wparams.no_context       = true;
             wparams.single_segment   = !use_vad;
             wparams.max_tokens       = params.max_tokens;
             wparams.language         = params.language.c_str();
@@ -325,11 +297,8 @@ int main(int argc, char ** argv) {
             wparams.audio_ctx        = params.audio_ctx;
             wparams.speed_up         = params.speed_up;
 
-            wparams.tdrz_enable      = params.tinydiarize; // [TDRZ]
-
             // disable temperature fallback
-            //wparams.temperature_inc  = -1.0f;
-            wparams.temperature_inc  = params.no_fallback ? 0.0f : wparams.temperature_inc;
+            wparams.temperature_inc  = -1.0f;
 
             wparams.prompt_tokens    = params.no_context ? nullptr : prompt_tokens.data();
             wparams.prompt_n_tokens  = params.no_context ? 0       : prompt_tokens.size();
@@ -372,19 +341,10 @@ int main(int argc, char ** argv) {
                         const int64_t t0 = whisper_full_get_segment_t0(ctx, i);
                         const int64_t t1 = whisper_full_get_segment_t1(ctx, i);
 
-                        std::string output = "[" + to_timestamp(t0) + " --> " + to_timestamp(t1) + "]  " + text;
-
-                        if (whisper_full_get_segment_speaker_turn_next(ctx, i)) {
-                            output += " [SPEAKER_TURN]";
-                        }
-
-                        output += "\n";
-
-                        printf("%s", output.c_str());
-                        fflush(stdout);
+                        printf ("[%s --> %s]  %s\n", to_timestamp(t0).c_str(), to_timestamp(t1).c_str(), text);
 
                         if (params.fname_out.length() > 0) {
-                            fout << output;
+                            fout << "[" << to_timestamp(t0) << " --> " << to_timestamp(t1) << "]  " << text << std::endl;
                         }
                     }
                 }
@@ -393,7 +353,7 @@ int main(int argc, char ** argv) {
                     fout << std::endl;
                 }
 
-                if (use_vad) {
+                if (use_vad){
                     printf("\n");
                     printf("### Transcription %d END\n", n_iter);
                 }
@@ -420,7 +380,6 @@ int main(int argc, char ** argv) {
                     }
                 }
             }
-            fflush(stdout);
         }
     }
 
