@@ -1732,22 +1732,20 @@ static struct ggml_cgraph * whisper_build_graph_conv(
         // convolution + gelu
         {
             cur = ggml_conv_1d_ph(ctx0, model.e_conv_1_w, mel, 1, 1);
-            cur = ggml_add(ctx0, cur, model.e_conv_1_b);
-            //cur = ggml_add(ctx0,
-            //        ggml_repeat(ctx0,
-            //            model.e_conv_1_b,
-            //            cur),
-            //        cur);
+            if (n_ctx == hparams.n_audio_ctx) {
+                cur = ggml_add(ctx0, cur, model.e_conv_1_b);
+            } else {
+                cur = ggml_add(ctx0, cur, ggml_cont(ctx0, ggml_view_2d(ctx0, model.e_conv_1_b, cur->ne[0], cur->ne[1], model.e_conv_1_b->nb[1], 0)));
+            }
 
             cur = ggml_gelu(ctx0, cur);
 
             cur = ggml_conv_1d_ph(ctx0, model.e_conv_2_w, cur, 2, 1);
-            cur = ggml_add(ctx0, cur, model.e_conv_2_b);
-            //cur = ggml_add(ctx0,
-            //        ggml_repeat(ctx0,
-            //            model.e_conv_2_b,
-            //            cur),
-            //        cur);
+            if (n_ctx == hparams.n_audio_ctx) {
+                cur = ggml_add(ctx0, cur, model.e_conv_2_b);
+            } else {
+                cur = ggml_add(ctx0, cur, ggml_cont(ctx0, ggml_view_2d(ctx0, model.e_conv_2_b, cur->ne[0], cur->ne[1], model.e_conv_2_b->nb[1], 0)));
+            }
 
             cur = ggml_gelu(ctx0, cur);
         }
@@ -3527,7 +3525,7 @@ int whisper_encode(struct whisper_context * ctx, int offset, int n_threads) {
 int whisper_decode_with_state(struct whisper_context * ctx, struct whisper_state * state, const whisper_token * tokens, int n_tokens, int n_past, int n_threads) {
     whisper_batch_prep_legacy(state->batch, tokens, n_tokens, n_past, 0);
 
-    whisper_kv_cache_seq_rm(ctx->state->kv_self, 0, n_past, -1);
+    whisper_kv_cache_seq_rm(state->kv_self, 0, n_past, -1);
 
     if (!whisper_decode_internal(*ctx, *state, state->batch, n_threads, nullptr, nullptr)) {
         WHISPER_LOG_ERROR("%s: failed to eval\n", __func__);
@@ -5188,7 +5186,7 @@ int whisper_full_with_state(
             const int progress_cur = (100*(seek - seek_start))/(seek_end - seek_start);
 
             params.progress_callback(
-                ctx, ctx->state, progress_cur, params.progress_callback_user_data);
+                ctx, state, progress_cur, params.progress_callback_user_data);
         }
 
         // of only 1 second left, then stop
