@@ -1078,6 +1078,11 @@ static ggml_backend_t whisper_backend_init(const whisper_context_params & params
         if (!backend_gpu) {
             WHISPER_LOG_ERROR("%s: ggml_backend_metal_init() failed\n", __func__);
         }
+        if (!ggml_backend_metal_supports_family(backend_gpu, 7)) {
+            WHISPER_LOG_ERROR("%s: Metal GPU does not support family 7 - falling back to CPU\n", __func__);
+            ggml_backend_free(backend_gpu);
+            backend_gpu = NULL;
+        }
     }
 #endif
 
@@ -3593,6 +3598,17 @@ const char * whisper_lang_str(int id) {
     return nullptr;
 }
 
+const char * whisper_lang_str_full(int id) {
+   for (const auto & kv : g_lang) {
+        if (kv.second.first == id) {
+            return kv.second.second.c_str();
+        }
+    }
+
+    WHISPER_LOG_ERROR("%s: unknown language id %d\n", __func__, id);
+    return nullptr;
+}
+
 int whisper_lang_auto_detect_with_state(
         struct whisper_context * ctx,
           struct whisper_state * state,
@@ -5180,7 +5196,7 @@ int whisper_full_with_state(
                 ctx, state, progress_cur, params.progress_callback_user_data);
         }
 
-        // of only 1 second left, then stop
+        // if only 1 second left, then stop
         if (seek + 100 >= seek_end) {
             break;
         }
