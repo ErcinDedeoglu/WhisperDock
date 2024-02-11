@@ -268,6 +268,17 @@ static inline float hsum_float_4x4(const __m128 a, const __m128 b, const __m128 
 #endif // defined(__AVX__) || defined(__AVX2__) || defined(__AVX512F__) || defined(__SSSE3__)
 
 #if defined(__ARM_NEON)
+
+#ifdef _MSC_VER
+
+#define ggml_vld1q_u32(w,x,y,z) { ((w) + ((uint64_t)(x) << 32)), ((y) + ((uint64_t)(z) << 32)) }
+
+#else
+
+#define ggml_vld1q_u32(w,x,y,z) { (w), (x), (y), (z) }
+
+#endif
+
 #if !defined(__aarch64__)
 
 // 64-bit compatibility
@@ -2381,19 +2392,20 @@ static void quantize_row_q4_K_impl(const float * restrict x, block_q4_K * restri
 
     uint8_t L[QK_K];
     uint8_t Laux[32];
+    uint8_t Ls[QK_K/32];
+    uint8_t Lm[QK_K/32];
     float   weights[32];
-    float mins[QK_K/32];
-    float scales[QK_K/32];
+    float   sw[QK_K/32];
+    float   mins[QK_K/32];
+    float   scales[QK_K/32];
 
     for (int i = 0; i < nb; i++) {
 
         float sum_x2 = 0;
         for (int l = 0; l < QK_K; ++l) sum_x2 += x[l] * x[l];
-        float sigma2 = sum_x2/QK_K;
+        float sigma2 = 2*sum_x2/QK_K;
         float av_x = sqrtf(sigma2);
 
-        float max_scale = 0; // as we are deducting the min, scales are always positive
-        float max_min = 0;
         for (int j = 0; j < QK_K/32; ++j) {
             if (quant_weights) {
                 const float * qw = quant_weights + QK_K*i + 32*j;
@@ -2401,25 +2413,17 @@ static void quantize_row_q4_K_impl(const float * restrict x, block_q4_K * restri
             } else {
                 for (int l = 0; l < 32; ++l) weights[l] = av_x + fabsf(x[32*j + l]);
             }
+            float sumw = 0;
+            for (int l = 0; l < 32; ++l) sumw += weights[l];
+            sw[j] = sumw;
             scales[j] = make_qkx3_quants(32, 15, x + 32*j, weights, L + 32*j, &mins[j], Laux, -0.9f, 0.05f, 36, false);
-          //scales[j] = make_qkx2_quants(32, 15, x + 32*j, weights, L + 32*j, &mins[j], Laux, -1.f, 0.1f, 20, false);
-            float scale = scales[j];
-            if (scale > max_scale) {
-                max_scale = scale;
-            }
-            float min = mins[j];
-            if (min > max_min) {
-                max_min = min;
-            }
         }
 
-        float inv_scale = max_scale > 0 ? 63.f/max_scale : 0.f;
-        float inv_min   = max_min   > 0 ? 63.f/max_min   : 0.f;
+        float d_block = make_qp_quants(QK_K/32, 63, scales, Ls, sw);
+        float m_block = make_qp_quants(QK_K/32, 63, mins,   Lm, sw);
         for (int j = 0; j < QK_K/32; ++j) {
-            uint8_t ls = nearest_int(inv_scale*scales[j]);
-            uint8_t lm = nearest_int(inv_min*mins[j]);
-            ls = MIN(63, ls);
-            lm = MIN(63, lm);
+            uint8_t ls = Ls[j];
+            uint8_t lm = Lm[j];
             if (j < 4) {
                 y[i].scales[j] = ls;
                 y[i].scales[j+4] = lm;
@@ -2429,8 +2433,8 @@ static void quantize_row_q4_K_impl(const float * restrict x, block_q4_K * restri
                 y[i].scales[j-0] |= ((lm >> 4) << 6);
             }
         }
-        y[i].d = GGML_FP32_TO_FP16(max_scale/63.f);
-        y[i].dmin = GGML_FP32_TO_FP16(max_min/63.f);
+        y[i].d = GGML_FP32_TO_FP16(d_block);
+        y[i].dmin = GGML_FP32_TO_FP16(m_block);
 
         uint8_t sc, m;
         for (int j = 0; j < QK_K/32; ++j) {
@@ -2688,20 +2692,21 @@ static void quantize_row_q5_K_impl(const float * restrict x, block_q5_K * restri
     const int nb = n_per_row / QK_K;
 
     uint8_t L[QK_K];
-    float mins[QK_K/32];
-    float scales[QK_K/32];
-    float weights[32];
     uint8_t Laux[32];
+    uint8_t Ls[QK_K/32];
+    uint8_t Lm[QK_K/32];
+    float   mins[QK_K/32];
+    float   scales[QK_K/32];
+    float   sw[QK_K/32];
+    float   weights[32];
 
     for (int i = 0; i < nb; i++) {
 
         float sum_x2 = 0;
         for (int l = 0; l < QK_K; ++l) sum_x2 += x[l] * x[l];
-        float sigma2 = sum_x2/QK_K;
+        float sigma2 = 2*sum_x2/QK_K;
         float av_x = sqrtf(sigma2);
 
-        float max_scale = 0; // as we are deducting the min, scales are always positive
-        float max_min = 0;
         for (int j = 0; j < QK_K/32; ++j) {
             if (quant_weights) {
                 const float * qw = quant_weights + QK_K*i + 32*j;
@@ -2709,22 +2714,19 @@ static void quantize_row_q5_K_impl(const float * restrict x, block_q5_K * restri
             } else {
                 for (int l = 0; l < 32; ++l) weights[l] = av_x + fabsf(x[32*j + l]);
             }
+            float sumw = 0;
+            for (int l = 0; l < 32; ++l) sumw += weights[l];
+            sw[j] = sumw;
+
             scales[j] = make_qkx3_quants(32, 31, x + 32*j, weights, L + 32*j, &mins[j], Laux, -0.9f, 0.05f, 36, false);
-            float scale = scales[j];
-            if (scale > max_scale) {
-                max_scale = scale;
-            }
-            float min = mins[j];
-            if (min > max_min) {
-                max_min = min;
-            }
         }
 
-        float inv_scale = max_scale > 0 ? 63.f/max_scale : 0.f;
-        float inv_min   = max_min   > 0 ? 63.f/max_min   : 0.f;
+        float d_block = make_qp_quants(QK_K/32, 63, scales, Ls, sw);
+        float m_block = make_qp_quants(QK_K/32, 63, mins,   Lm, sw);
+
         for (int j = 0; j < QK_K/32; ++j) {
-            uint8_t ls = nearest_int(inv_scale*scales[j]);
-            uint8_t lm = nearest_int(inv_min*mins[j]);
+            uint8_t ls = Ls[j];
+            uint8_t lm = Lm[j];
             ls = MIN(63, ls);
             lm = MIN(63, lm);
             if (j < 4) {
@@ -2736,8 +2738,8 @@ static void quantize_row_q5_K_impl(const float * restrict x, block_q5_K * restri
                 y[i].scales[j-0] |= ((lm >> 4) << 6);
             }
         }
-        y[i].d = GGML_FP32_TO_FP16(max_scale/63.f);
-        y[i].dmin = GGML_FP32_TO_FP16(max_min/63.f);
+        y[i].d = GGML_FP32_TO_FP16(d_block);
+        y[i].dmin = GGML_FP32_TO_FP16(m_block);
 
         uint8_t sc, m;
         for (int j = 0; j < QK_K/32; ++j) {
@@ -8707,10 +8709,10 @@ void ggml_vec_dot_iq3_xxs_q8_K(const int n, float * restrict s, const void * res
         for (int ib32 = 0; ib32 < QK_K/32; ib32 += 2) {
             q8b = ggml_vld1q_s8_x4(q8); q8 += 64;
             memcpy(aux32, gas, 2*sizeof(uint32_t)); gas += 2*sizeof(uint32_t);
-            const uint32x4_t aux32x4_0 = {iq3xxs_grid[q3[ 0]], iq3xxs_grid[q3[ 1]], iq3xxs_grid[q3[ 2]], iq3xxs_grid[q3[ 3]]};
-            const uint32x4_t aux32x4_1 = {iq3xxs_grid[q3[ 4]], iq3xxs_grid[q3[ 5]], iq3xxs_grid[q3[ 6]], iq3xxs_grid[q3[ 7]]};
-            const uint32x4_t aux32x4_2 = {iq3xxs_grid[q3[ 8]], iq3xxs_grid[q3[ 9]], iq3xxs_grid[q3[10]], iq3xxs_grid[q3[11]]};
-            const uint32x4_t aux32x4_3 = {iq3xxs_grid[q3[12]], iq3xxs_grid[q3[13]], iq3xxs_grid[q3[14]], iq3xxs_grid[q3[15]]};
+            const uint32x4_t aux32x4_0 = ggml_vld1q_u32(iq3xxs_grid[q3[ 0]], iq3xxs_grid[q3[ 1]], iq3xxs_grid[q3[ 2]], iq3xxs_grid[q3[ 3]]);
+            const uint32x4_t aux32x4_1 = ggml_vld1q_u32(iq3xxs_grid[q3[ 4]], iq3xxs_grid[q3[ 5]], iq3xxs_grid[q3[ 6]], iq3xxs_grid[q3[ 7]]);
+            const uint32x4_t aux32x4_2 = ggml_vld1q_u32(iq3xxs_grid[q3[ 8]], iq3xxs_grid[q3[ 9]], iq3xxs_grid[q3[10]], iq3xxs_grid[q3[11]]);
+            const uint32x4_t aux32x4_3 = ggml_vld1q_u32(iq3xxs_grid[q3[12]], iq3xxs_grid[q3[13]], iq3xxs_grid[q3[14]], iq3xxs_grid[q3[15]]);
             q3 += 16;
             q3s.val[0] = vcombine_s8(vld1_s8((const void *)(signs64 + ((aux32[0] >>  0) & 127))), vld1_s8((const void *)(signs64 + ((aux32[0] >>  7) & 127))));
             q3s.val[1] = vcombine_s8(vld1_s8((const void *)(signs64 + ((aux32[0] >> 14) & 127))), vld1_s8((const void *)(signs64 + ((aux32[0] >> 21) & 127))));
@@ -9048,8 +9050,6 @@ static void quantize_row_iq2_xxs_impl(const float * restrict x, void * restrict 
     int8_t L[32];
     int8_t Laux[32];
     float  waux[32];
-    bool   is_on_grid[4];
-    bool   is_on_grid_aux[4];
     uint8_t block_signs[4];
     uint32_t q2[2*(QK_K/32)];
 
@@ -9099,10 +9099,11 @@ static void quantize_row_iq2_xxs_impl(const float * restrict x, void * restrict 
                 memset(L, 0, 32);
                 continue;
             }
+            float scale = make_qp_quants(32, kMaxQ+1, xval, (uint8_t*)L, weight);
+            float eff_max = scale*kMaxQ;
             float best = 0;
-            float scale = max/(2*kMaxQ-1);
-            for (int is = -9; is <= 9; ++is) {
-                float id = (2*kMaxQ-1+is*0.1f)/max;
+            for (int is = -6; is <= 6; ++is) {
+                float id = (2*kMaxQ-1+is*0.1f)/eff_max;
                 float this_scale = 1/id;
                 for (int k = 0; k < 4; ++k) {
                     for (int i = 0; i < 8; ++i) {
@@ -9112,9 +9113,7 @@ static void quantize_row_iq2_xxs_impl(const float * restrict x, void * restrict 
                     uint16_t u = 0;
                     for (int i = 0; i < 8; ++i) u |= (Laux[8*k+i] << 2*i);
                     int grid_index = kmap_q2xs[u];
-                    is_on_grid_aux[k] = true;
                     if (grid_index < 0) {
-                        is_on_grid_aux[k] = false;
                         const uint16_t * neighbours = kneighbors_q2xs - kmap_q2xs[u] - 1;
                         grid_index = iq2_find_best_neighbour(neighbours, kgrid_q2xs, xval + 8*k, waux + 8*k, this_scale, Laux + 8*k);
                     }
@@ -9128,16 +9127,12 @@ static void quantize_row_iq2_xxs_impl(const float * restrict x, void * restrict 
                 }
                 if (sumq2 > 0 && sumqx*sumqx > best*sumq2) {
                     scale = sumqx/sumq2; best = scale*sumqx;
-                    for (int i = 0; i < 32; ++i) L[i] = Laux[i];
-                    for (int k = 0; k <  4; ++k) is_on_grid[k] = is_on_grid_aux[k];
+                    memcpy(L, Laux, 32);
                 }
             }
-            int n_not_ongrid = 0;
-            for (int k = 0; k < 4; ++k) if (!is_on_grid[k]) ++n_not_ongrid;
-            if (n_not_ongrid > 0 && scale > 0) {
+            if (scale > 0) {
                 float id = 1/scale;
                 for (int k = 0; k < 4; ++k) {
-                    if (is_on_grid[k]) continue;
                     uint16_t u = 0;
                     for (int i = 0; i < 8; ++i) {
                         int l = nearest_int(0.5f*(id*xval[8*k+i]-1));
@@ -9193,49 +9188,10 @@ static void quantize_row_iq2_xxs_impl(const float * restrict x, void * restrict 
         float d = max_scale/31;
         y[ibl].d = GGML_FP32_TO_FP16(d);
         float id = 1/d;
-        float sumqx = 0, sumq2 = 0;
         for (int ib = 0; ib < QK_K/32; ++ib) {
             int l = nearest_int(0.5f*(id*scales[ib]-1));
             l = MAX(0, MIN(15, l));
             q2[2*ib+1] |= ((uint32_t)l << 28);
-            const float * xb = xbl + 32*ib;
-            const float * qw = quant_weights + QK_K*ibl + 32*ib;
-            for (int i = 0; i < 32; ++i) weight[i] = qw[i] * sqrtf(sigma2 + xb[i]*xb[i]);
-            const uint8_t * aux8 = (const uint8_t *)(q2 + 2*ib);
-            const float db = d * (1 + 2*l);
-            uint32_t u = 0;
-            for (int k = 0; k < 4; ++k) {
-                const int8_t * signs = keven_signs_q2xs + 8*((q2[2*ib+1] >> 7*k) & 127);
-                const float * xk = xb + 8*k;
-                const float * wk = weight + 8*k;
-                const uint8_t * grid = (const uint8_t *)(kgrid_q2xs + aux8[k]);
-                float best_mse = 0; int best_index = aux8[k];
-                for (int j = 0; j < 8; ++j) {
-                    float diff = db * grid[j] * signs[j] - xk[j];
-                    best_mse += wk[j] * diff * diff;
-                }
-                for (int idx = 0; idx < 256; ++idx) {
-                    grid = (const uint8_t *)(kgrid_q2xs + idx);
-                    float mse = 0;
-                    for (int j = 0; j < 8; ++j) {
-                        float diff = db * grid[j] * signs[j] - xk[j];
-                        mse += wk[j] * diff * diff;
-                    }
-                    if (mse < best_mse) {
-                        best_mse = mse; best_index = idx;
-                    }
-                }
-                u |= (best_index << 8*k);
-                grid = (const uint8_t *)(kgrid_q2xs + best_index);
-                //grid = (const uint8_t *)(kgrid_q2xs + aux8[k]);
-                for (int j = 0; j < 8; ++j) {
-                    float q = db * grid[j] * signs[j];
-                    sumqx += wk[j] * q * xk[j];
-                    sumq2 += wk[j] * q * q;
-                }
-            }
-            q2[2*ib] = u;
-            if (sumq2 > 0) y[ibl].d = GGML_FP32_TO_FP16(d*sumqx/sumq2);
         }
         memcpy(y[ibl].qs, q2, QK_K/4);
     }
