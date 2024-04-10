@@ -5,7 +5,7 @@
 # Usage:
 #
 #   $ cd /path/to/whisper.cpp
-#   $ ./extra/sync-ggml-am.sh -skip hash0,hash1,hash2...
+#   $ ./scripts/sync-ggml-am.sh -skip hash0,hash1,hash2...
 #
 
 set -e
@@ -21,7 +21,7 @@ if [ ! -d $SRC_GGML ]; then
     exit 1
 fi
 
-lc=$(cat $SRC_WHISPER/extra/sync-ggml.last)
+lc=$(cat $SRC_WHISPER/scripts/sync-ggml.last)
 echo "Syncing ggml changes since commit $lc"
 
 to_skip=""
@@ -71,6 +71,8 @@ while read c; do
         examples/whisper/whisper.cpp \
         examples/whisper/main.cpp \
         examples/whisper/quantize.cpp \
+        LICENSE \
+        scripts/gen-authors.sh \
         >> $SRC_WHISPER/ggml-src.patch
 done < $SRC_WHISPER/ggml-commits
 
@@ -134,6 +136,9 @@ if [ -f $SRC_WHISPER/ggml-src.patch ]; then
     # examples/whisper/whisper.cpp  -> whisper.cpp
     # examples/whisper/main.cpp     -> examples/main/main.cpp
     # examples/whisper/quantize.cpp -> examples/quantize/quantize.cpp
+    #
+    # LICENSE                     -> LICENSE
+    # ggml/scripts/gen-authors.sh -> scripts/gen-authors.sh
 
     cat ggml-src.patch | sed \
         -e 's/src\/ggml\.c/ggml.c/g' \
@@ -172,6 +177,8 @@ if [ -f $SRC_WHISPER/ggml-src.patch ]; then
         -e 's/examples\/whisper\/whisper\.cpp/whisper.cpp/g' \
         -e 's/examples\/whisper\/main\.cpp/examples\/main\/main.cpp/g' \
         -e 's/examples\/whisper\/quantize\.cpp/examples\/quantize\/quantize.cpp/g' \
+        -e 's/LICENSE/LICENSE/g' \
+        -e 's/ggml\/scripts\/gen-authors\.sh/scripts\/gen-authors.sh/g' \
         > ggml-src.patch.tmp
     mv ggml-src.patch.tmp ggml-src.patch
 
@@ -182,7 +189,7 @@ fi
 
 # update last commit
 cd $SRC_GGML
-git log -1 --format=%H > $SRC_WHISPER/extra/sync-ggml.last
+git log -1 --format=%H > $SRC_WHISPER/scripts/sync-ggml.last
 
 echo "Done"
 

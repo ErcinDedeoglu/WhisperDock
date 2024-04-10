@@ -6,6 +6,7 @@
 #include <cmath>
 #include <fstream>
 #include <cstdio>
+#include <regex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -77,6 +78,9 @@ struct whisper_params {
 
     // [TDRZ] speaker turn string
     std::string tdrz_speaker_turn = " [SPEAKER_TURN]"; // TODO: set from command line
+
+    // A regular expression that matches tokens to suppress
+    std::string suppress_regex;
 
     std::string openvino_encode_device = "CPU";
 
@@ -160,6 +164,7 @@ bool whisper_params_parse(int argc, char ** argv, whisper_params & params) {
         else if (arg == "-dtw"  || arg == "--dtw")             { params.dtw             = argv[++i]; }
         else if (arg == "-ls"   || arg == "--log-score")       { params.log_score       = true; }
         else if (arg == "-ng"   || arg == "--no-gpu")          { params.use_gpu         = false; }
+        else if (                  arg == "--suppress-regex")  { params.suppress_regex = argv[++i]; }
         else if (                  arg == "--grammar")         { params.grammar         = argv[++i]; }
         else if (                  arg == "--grammar-rule")    { params.grammar_rule    = argv[++i]; }
         else if (                  arg == "--grammar-penalty") { params.grammar_penalty = std::stof(argv[++i]); }
@@ -223,6 +228,7 @@ void whisper_print_usage(int /*argc*/, char ** argv, const whisper_params & para
     fprintf(stderr, "  -dtw MODEL --dtw MODEL         [%-7s] compute token-level timestamps\n",                 params.dtw.c_str());
     fprintf(stderr, "  -ls,       --log-score         [%-7s] log best decoder scores of tokens\n",              params.log_score?"true":"false");
     fprintf(stderr, "  -ng,       --no-gpu            [%-7s] disable GPU\n",                                    params.use_gpu ? "false" : "true");
+    fprintf(stderr, "  --suppress-regex REGEX         [%-7s] regular expression matching tokens to suppress\n", params.suppress_regex.c_str());
     fprintf(stderr, "  --grammar GRAMMAR              [%-7s] GBNF grammar to guide decoding\n",                 params.grammar.c_str());
     fprintf(stderr, "  --grammar-rule RULE            [%-7s] top-level GBNF grammar rule name\n",               params.grammar_rule.c_str());
     fprintf(stderr, "  --grammar-penalty N            [%-7.1f] scales down logits of nongrammar tokens\n",      params.grammar_penalty);
@@ -861,6 +867,35 @@ void cb_log_disable(enum ggml_log_level , const char * , void * ) { }
 int main(int argc, char ** argv) {
     whisper_params params;
 
+    // If the only argument starts with "@", read arguments line-by-line
+    // from the given file.
+    std::vector<std::string> vec_args;
+    if (argc == 2 && argv != nullptr && argv[1] != nullptr && argv[1][0] == '@') {
+        // Save the name of the executable.
+        vec_args.push_back(argv[0]);
+
+        // Open the response file.
+        char const * rspfile = argv[1] + sizeof(char);
+        std::ifstream fin(rspfile);
+        if (fin.is_open() == false) {
+            fprintf(stderr, "error: response file '%s' not found\n", rspfile);
+            return 1;
+        }
+
+        // Read the entire response file.
+        std::string line;
+        while (std::getline(fin, line)) {
+            vec_args.push_back(line);
+        }
+
+        // Use the contents of the response file as the command-line arguments.
+        argc = static_cast<int>(vec_args.size());
+        argv = static_cast<char **>(alloca(argc * sizeof (char *)));
+        for (int i = 0; i < argc; ++i) {
+            argv[i] = const_cast<char *>(vec_args[i].c_str());
+        }
+    }
+
     if (whisper_params_parse(argc, argv, params) == false) {
         whisper_print_usage(argc, argv, params);
         return 1;
@@ -1032,6 +1067,8 @@ int main(int argc, char ** argv) {
             wparams.debug_mode       = params.debug_mode;
 
             wparams.tdrz_enable      = params.tinydiarize; // [TDRZ]
+
+            wparams.suppress_regex   = params.suppress_regex.c_str();
 
             wparams.initial_prompt   = params.prompt.c_str();
 
