@@ -90,7 +90,6 @@ jobs:
           rm -rf .devops
           rm -rf .github
           rm -rf docs
-          rm -rf tests
           rm -rf samples
           rm -f LICENSE
           rm -f .gitignore
@@ -131,7 +130,6 @@ jobs:
           rm -rf src/whisper/.devops
           rm -rf src/whisper/.github
           rm -rf src/whisper/docs
-          rm -rf src/whisper/tests
           rm -rf src/whisper/samples
           rm -f src/whisper/LICENSE
           rm -f src/whisper/.gitignore
