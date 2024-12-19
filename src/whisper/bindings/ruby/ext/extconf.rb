@@ -111,11 +111,6 @@ unless ENV['RISCV']
     $MK_CFLAGS     << ' -march=native -mtune=native'
     $HOST_CXXFLAGS << ' -march=native -mtune=native'
   end
-
-  if $UNAME_M.match? /aarch64.*/
-    $MK_CFLAGS   << ' -mcpu=native'
-    $MK_CXXFLAGS << ' -mcpu=native'
-  end
 else
   $MK_CFLAGS   << ' -march=rv64gcv -mabi=lp64d'
   $MK_CXXFLAGS << ' -march=rv64gcv -mabi=lp64d'
@@ -162,7 +157,6 @@ end
 
 $OBJ_GGML <<
   'ggml/src/ggml.o' <<
-  'ggml/src/ggml-aarch64.o' <<
   'ggml/src/ggml-alloc.o' <<
   'ggml/src/ggml-backend.o' <<
   'ggml/src/ggml-backend-reg.o' <<
@@ -172,7 +166,9 @@ $OBJ_GGML <<
   'ggml/src/ggml-cpu/ggml-cpu.o' <<
   'ggml/src/ggml-cpu/ggml-cpu-cpp.o' <<
   'ggml/src/ggml-cpu/ggml-cpu-aarch64.o' <<
-  'ggml/src/ggml-cpu/ggml-cpu-quants.o'
+  'ggml/src/ggml-cpu/ggml-cpu-hbm.o' <<
+  'ggml/src/ggml-cpu/ggml-cpu-quants.o' <<
+  'ggml/src/ggml-cpu/ggml-cpu-traits.o'
 
 $OBJ_WHISPER <<
   'src/whisper.o'
