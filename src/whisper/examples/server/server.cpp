@@ -61,6 +61,7 @@ struct whisper_params {
     float logprob_thold   = -1.00f;
     float temperature     =  0.00f;
     float temperature_inc =  0.20f;
+    float no_speech_thold = 0.6f;
 
     bool debug_mode      = false;
     bool translate       = false;
@@ -76,6 +77,7 @@ struct whisper_params {
     bool no_timestamps   = false;
     bool use_gpu         = true;
     bool flash_attn      = false;
+    bool suppress_nst    = false;
 
     std::string language        = "en";
     std::string prompt          = "";
@@ -135,6 +137,8 @@ void whisper_print_usage(int /*argc*/, char ** argv, const whisper_params & para
     fprintf(stderr, "  --request-path PATH,           [%-7s] Request path for all requests\n", sparams.request_path.c_str());
     fprintf(stderr, "  --inference-path PATH,         [%-7s] Inference path for all requests\n", sparams.inference_path.c_str());
     fprintf(stderr, "  --convert,                     [%-7s] Convert audio to WAV, requires ffmpeg on the server", sparams.ffmpeg_converter ? "true" : "false");
+    fprintf(stderr, "  -sns,      --suppress-nst      [%-7s] suppress non-speech tokens\n", params.suppress_nst ? "true" : "false");
+    fprintf(stderr, "  -nth N,    --no-speech-thold N [%-7.2f] no speech threshold\n",   params.no_speech_thold);
     fprintf(stderr, "\n");
 }
 
@@ -179,6 +183,9 @@ bool whisper_params_parse(int argc, char ** argv, whisper_params & params, serve
         else if (arg == "-dtw"  || arg == "--dtw")             { params.dtw             = argv[++i]; }
         else if (arg == "-ng"   || arg == "--no-gpu")          { params.use_gpu         = false; }
         else if (arg == "-fa"   || arg == "--flash-attn")      { params.flash_attn      = true; }
+        else if (arg == "-sns"  || arg == "--suppress-nst")    { params.suppress_nst    = true; }
+        else if (arg == "-nth"  || arg == "--no-speech-thold") { params.no_speech_thold = std::stof(argv[++i]); }
+
         // server params
         else if (                  arg == "--port")            { sparams.port        = std::stoi(argv[++i]); }
         else if (                  arg == "--host")            { sparams.hostname    = argv[++i]; }
@@ -472,6 +479,14 @@ void get_req_parameters(const Request & req, whisper_params & params)
     {
         params.temperature_inc = std::stof(req.get_file_value("temperature_inc").content);
     }
+    if (req.has_file("suppress_non_speech"))
+    {
+        params.suppress_nst = parse_str_to_bool(req.get_file_value("suppress_non_speech").content);
+    }
+    if (req.has_file("suppress_nst"))
+    {
+        params.suppress_nst = parse_str_to_bool(req.get_file_value("suppress_nst").content);
+    }
 }
 
 }  // namespace
@@ -677,7 +692,8 @@ int main(int argc, char ** argv) {
         if (sparams.ffmpeg_converter) {
             // if file is not wav, convert to wav
             // write to temporary file
-            const std::string temp_filename_base = std::tmpnam(nullptr);
+            //const std::string temp_filename_base = std::tmpnam(nullptr);
+            const std::string temp_filename_base = "whisper-server-tmp"; // TODO: this is a hack, remove when the mutext is removed
             const std::string temp_filename = temp_filename_base + ".wav";
             std::ofstream temp_file{temp_filename, std::ios::binary};
             temp_file << audio_file.content;
@@ -710,7 +726,6 @@ int main(int argc, char ** argv) {
                 return;
             }
         }
-
 
         printf("Successfully loaded %s\n", filename.c_str());
 
@@ -779,12 +794,15 @@ int main(int argc, char ** argv) {
             wparams.beam_search.beam_size = params.beam_size;
 
             wparams.temperature      = params.temperature;
+            wparams.no_speech_thold = params.no_speech_thold;
             wparams.temperature_inc  = params.temperature_inc;
             wparams.entropy_thold    = params.entropy_thold;
             wparams.logprob_thold    = params.logprob_thold;
 
             wparams.no_timestamps    = params.no_timestamps;
             wparams.token_timestamps = !params.no_timestamps && params.response_format == vjson_format;
+
+            wparams.suppress_nst     = params.suppress_nst;
 
             whisper_print_user_data user_data = { &params, &pcmf32s, 0 };
 
@@ -929,7 +947,7 @@ int main(int argc, char ** argv) {
 
                 // TODO compression_ratio and no_speech_prob are not implemented yet
                 // segment["compression_ratio"] = 0;
-                // segment["no_speech_prob"] = 0;
+                segment["no_speech_prob"] = whisper_full_get_segment_no_speech_prob(ctx, i);
 
                 jres["segments"].push_back(segment);
             }
