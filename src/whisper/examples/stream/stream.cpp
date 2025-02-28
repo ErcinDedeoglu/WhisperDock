@@ -4,15 +4,15 @@
 //
 #include "common-sdl.h"
 #include "common.h"
+#include "common-whisper.h"
 #include "whisper.h"
 
-#include <cassert>
+#include <chrono>
 #include <cstdio>
+#include <fstream>
 #include <string>
 #include <thread>
 #include <vector>
-#include <fstream>
-
 
 // command-line parameters
 struct whisper_params {
@@ -244,6 +244,11 @@ int main(int argc, char ** argv) {
 
         if (!use_vad) {
             while (true) {
+                // handle Ctrl + C
+                is_running = sdl_poll_events();
+                if (!is_running) {
+                    break;
+                }
                 audio.get(params.step_ms, pcmf32_new);
 
                 if ((int) pcmf32_new.size() > 2*n_samples_step) {
