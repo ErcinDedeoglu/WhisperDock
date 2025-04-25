@@ -86,7 +86,6 @@ jobs:
         run: |
           cd $HOME/LATEST_TAG_WHISPER_CPP
           shopt -s extglob
-          # Only remove non-essential directories to avoid breaking the build.
           rm -rf .git
           rm -rf .devops
           rm -rf .github
@@ -96,7 +95,6 @@ jobs:
           rm -f .gitignore
           rm -f .gitmodules
           find . -name "*.md" -exec rm {} \;
-          # Do NOT delete any *.txt files, as these may be required for build or packaging.
 
       - name: 🚚 Move LATEST_TAG_WHISPER_CPP to TARGET_REPOSITORY/src/whisper
         run: |
