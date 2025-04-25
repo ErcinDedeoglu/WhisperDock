@@ -92,6 +92,7 @@ jobs:
           rm -rf docs
           rm -rf samples
           rm -f LICENSE
+          rm -f AUTHORS
           rm -f .gitignore
           rm -f .gitmodules
           find . -name "*.md" -exec rm {} \;
@@ -131,6 +132,7 @@ jobs:
           rm -rf src/whisper/docs
           rm -rf src/whisper/samples
           rm -f src/whisper/LICENSE
+          rm -f src/whisper/AUTHORS
           rm -f src/whisper/.gitignore
           rm -f src/whisper/.gitmodules
           find src/whisper -name "*.md" -exec rm {} \;
