@@ -597,7 +597,7 @@ static bool whisper_sched_graph_init(struct whisper_sched & allocr, std::vector<
     auto & sched = allocr.sched;
     auto & meta  = allocr.meta;
 
-    sched = ggml_backend_sched_new(backends.data(), nullptr, backends.size(), WHISPER_MAX_NODES, false);
+    sched = ggml_backend_sched_new(backends.data(), nullptr, backends.size(), WHISPER_MAX_NODES, false, true);
 
     meta.resize(ggml_tensor_overhead()*WHISPER_MAX_NODES + ggml_graph_overhead());
 
