@@ -20,6 +20,24 @@ class TestWhisper < TestBase
     }
   end
 
+  def test_transcribe_non_parallel
+    @whisper = Whisper::Context.new("base.en")
+    params  = Whisper::Params.new
+
+    @whisper.transcribe(AUDIO, params, n_processors: 1) {|text|
+      assert_match(/ask not what your country can do for you, ask what you can do for your country/, text)
+    }
+  end
+
+  def test_transcribe_n_processors
+    @whisper = Whisper::Context.new("base.en")
+    params  = Whisper::Params.new
+
+    @whisper.transcribe(AUDIO, params, n_processors: 4) {|text|
+      assert_match(/ask not what your country can do for you[,.] ask what you can do for your country/i, text)
+    }
+  end
+
   sub_test_case "After transcription" do
     def test_full_n_segments
       assert_equal 1, whisper.full_n_segments

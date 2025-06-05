@@ -4,7 +4,7 @@ Gem::Specification.new do |s|
   s.name    = "whispercpp"
   s.authors = ["Georgi Gerganov", "Todd A. Fisher"]
   s.version = '1.3.3'
-  s.date    = '2025-06-01'
+  s.date    = '2025-06-03'
   s.description = %q{High-performance inference of OpenAI's Whisper automatic speech recognition (ASR) model via Ruby}
   s.email   = 'todd.fisher@gmail.com'
   s.extra_rdoc_files = ['LICENSE', 'README.md']
@@ -21,7 +21,7 @@ Gem::Specification.new do |s|
               }
 
   s.summary = %q{Ruby whisper.cpp bindings}
-  s.test_files = s.files.select {|file| file.start_with? "tests/"}
+  s.test_files = s.files.select {|file| file.start_with? "test/"}
 
   s.extensions << 'ext/extconf.rb'
   s.required_ruby_version = '>= 3.1.0'
