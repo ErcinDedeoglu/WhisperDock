@@ -17,7 +17,11 @@ class Dependencies
   def libs
     tsort.filter_map {|node|
       label, shape = @nodes[node]
-      shape == @static_lib_shape ? label : nil
+      if shape == @static_lib_shape
+        label.gsub(/\\n\([^)]+\)/, '')
+      else
+        nil
+      end
     }.reverse.collect {|lib| "lib#{lib}.a"}
   end
 
