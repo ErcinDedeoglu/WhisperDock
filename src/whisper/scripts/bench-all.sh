@@ -104,6 +104,8 @@ for model in "${models[@]}"; do
 
     if [[ $system_info == *"METAL = 1"* ]]; then
         config="$config METAL"
+    elif [[ $system_info == *"Metal : EMBED_LIBRARY = 1"* ]]; then
+        config="$config METAL"
     fi
 
     commit=$(git rev-parse --short HEAD)
