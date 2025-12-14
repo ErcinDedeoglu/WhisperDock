@@ -4,7 +4,8 @@
 
 llm_build_deepseek2::llm_build_deepseek2(const llama_model & model, const llm_graph_params & params) :
     llm_graph_context(params) {
-    bool is_lite = (hparams.n_layer == 27);
+    // lite variants include DeepSeek-V2-Lite, GigaChat3-10B-A1.8B
+    bool is_lite = (hparams.n_layer == 27 || hparams.n_layer == 26);
 
     const bool is_mla = (hparams.n_embd_head_k_mla != 0 && hparams.n_embd_head_v_mla != 0);
 
@@ -28,6 +29,12 @@ llm_build_deepseek2::llm_build_deepseek2(const llama_model & model, const llm_gr
 
     // {n_embd, n_tokens}
     inpL = build_inp_embd(model.tok_embd);
+
+    // (optional) temperature tuning - used by mistral-large
+    ggml_tensor * inp_attn_scale = nullptr;
+    if (hparams.f_attn_temp_scale != 0.0f) {
+        inp_attn_scale = build_inp_attn_scale();
+    }
 
     // inp_pos - contains the positions
     ggml_tensor * inp_pos = build_inp_pos();
@@ -127,6 +134,12 @@ llm_build_deepseek2::llm_build_deepseek2(const llama_model & model, const llm_gr
                 ggml_tensor * Vcur = kv_cmpr;
                 cb(Vcur, "Vcur", il);
 
+                if (inp_attn_scale) {
+                    // apply llama 4 temperature scaling
+                    Qcur = ggml_mul(ctx0, Qcur, inp_attn_scale);
+                    cb(Qcur, "Qcur_attn_temp_scaled", il);
+                }
+
                 // note: MLA with the absorption optimzation converts into MQA (ie: GQA with 1 group)
                 cur = build_attn(inp_attn,
                         model.layers[il].wo, NULL,
@@ -158,6 +171,12 @@ llm_build_deepseek2::llm_build_deepseek2(const llama_model & model, const llm_gr
 
                 ggml_tensor * Kcur = ggml_concat(ctx0, ggml_repeat(ctx0, k_pe, q_pe), k_nope, 0);
                 cb(Kcur, "Kcur", il);
+
+                if (inp_attn_scale) {
+                    // apply llama 4 temperature scaling
+                    Qcur = ggml_mul(ctx0, Qcur, inp_attn_scale);
+                    cb(Qcur, "Qcur_attn_temp_scaled", il);
+                }
 
                 // note: MLA without the absorption optimization converts into MHA (ie: GQA with full n_head groups)
                 cur = build_attn(inp_attn,
