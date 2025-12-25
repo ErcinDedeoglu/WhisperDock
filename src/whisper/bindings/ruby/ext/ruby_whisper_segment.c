@@ -1,18 +1,23 @@
 #include <ruby.h>
 #include "ruby_whisper.h"
 
-#define N_KEY_NAMES 5
+#define N_KEY_NAMES 6
 
+extern ID id___method__;
+extern ID id_to_enum;
 static VALUE sym_start_time;
 static VALUE sym_end_time;
 static VALUE sym_text;
 static VALUE sym_no_speech_prob;
 static VALUE sym_speaker_turn_next;
+static VALUE sym_n_tokens;
 static VALUE key_names;
 
 extern const rb_data_type_t ruby_whisper_type;
 
 extern VALUE cSegment;
+
+extern VALUE ruby_whisper_token_s_init(struct whisper_context *context, int i_segment, int index);
 
 static void
 rb_whisper_segment_mark(void *p)
@@ -72,7 +77,7 @@ ruby_whisper_segment_get_start_time(VALUE self)
   ruby_whisper_segment *rws;
   TypedData_Get_Struct(self, ruby_whisper_segment, &ruby_whisper_segment_type, rws);
   ruby_whisper *rw;
-  TypedData_Get_Struct(rws->context, ruby_whisper, &ruby_whisper_type, rw);
+  GetContext(rws->context, rw);
   const int64_t t0 = whisper_full_get_segment_t0(rw->context, rws->index);
   // able to multiply 10 without overflow because to_timestamp() in whisper.cpp does it
   return LONG2NUM(t0 * 10);
@@ -90,7 +95,7 @@ ruby_whisper_segment_get_end_time(VALUE self)
   ruby_whisper_segment *rws;
   TypedData_Get_Struct(self, ruby_whisper_segment, &ruby_whisper_segment_type, rws);
   ruby_whisper *rw;
-  TypedData_Get_Struct(rws->context, ruby_whisper, &ruby_whisper_type, rw);
+  GetContext(rws->context, rw);
   const int64_t t1 = whisper_full_get_segment_t1(rw->context, rws->index);
   // able to multiply 10 without overflow because to_timestamp() in whisper.cpp does it
   return LONG2NUM(t1 * 10);
@@ -108,7 +113,7 @@ ruby_whisper_segment_get_speaker_turn_next(VALUE self)
   ruby_whisper_segment *rws;
   TypedData_Get_Struct(self, ruby_whisper_segment, &ruby_whisper_segment_type, rws);
   ruby_whisper *rw;
-  TypedData_Get_Struct(rws->context, ruby_whisper, &ruby_whisper_type, rw);
+  GetContext(rws->context, rw);
   return whisper_full_get_segment_speaker_turn_next(rw->context, rws->index) ? Qtrue : Qfalse;
 }
 
@@ -122,7 +127,7 @@ ruby_whisper_segment_get_text(VALUE self)
   ruby_whisper_segment *rws;
   TypedData_Get_Struct(self, ruby_whisper_segment, &ruby_whisper_segment_type, rws);
   ruby_whisper *rw;
-  TypedData_Get_Struct(rws->context, ruby_whisper, &ruby_whisper_type, rw);
+  GetContext(rws->context, rw);
   const char * text = whisper_full_get_segment_text(rw->context, rws->index);
   return rb_str_new2(text);
 }
@@ -137,15 +142,67 @@ ruby_whisper_segment_get_no_speech_prob(VALUE self)
   ruby_whisper_segment *rws;
   TypedData_Get_Struct(self, ruby_whisper_segment, &ruby_whisper_segment_type, rws);
   ruby_whisper *rw;
-  TypedData_Get_Struct(rws->context, ruby_whisper, &ruby_whisper_type, rw);
+  GetContext(rws->context, rw);
   return DBL2NUM(whisper_full_get_segment_no_speech_prob(rw->context, rws->index));
+}
+
+/*
+ * Get number of tokens in the segment
+ *
+ * call-seq:
+ *   n_tokens -> Integer
+ */
+static VALUE
+ruby_whisper_segment_get_n_tokens(VALUE self)
+{
+  ruby_whisper_segment *rws;
+  TypedData_Get_Struct(self, ruby_whisper_segment, &ruby_whisper_segment_type, rws);
+  ruby_whisper *rw;
+  GetContext(rws->context, rw);
+  return INT2NUM(whisper_full_n_tokens(rw->context, rws->index));
+}
+
+/*
+ * Yields each Whisper::Token:
+ *
+ *   whisper.each_segment.first.each_token do |token|
+ *     p token
+ *   end
+ *
+ * Returns an Enumerator if no block is given:
+ *
+ *   whisper.each_segment.first.each_token.to_a # => [#<Whisper::Token>, ...]
+ *
+ * call-seq:
+ *   each_token {|token| ... }
+ *   each_token -> Enumerator
+ */
+static VALUE
+ruby_whisper_segment_each_token(VALUE self)
+{
+  if (!rb_block_given_p()) {
+    const VALUE method_name = rb_funcall(self, id___method__, 0);
+    return rb_funcall(self, id_to_enum, 1, method_name);
+  }
+
+  ruby_whisper_segment *rws;
+  TypedData_Get_Struct(self, ruby_whisper_segment, &ruby_whisper_segment_type, rws);
+  ruby_whisper *rw;
+  GetContext(rws->context, rw);
+
+  const int n_tokens = whisper_full_n_tokens(rw->context, rws->index);
+  for (int i = 0; i < n_tokens; ++i) {
+    rb_yield(ruby_whisper_token_s_init(rw->context, rws->index, i));
+  }
+
+  return self;
 }
 
 /*
  * call-seq:
  *   deconstruct_keys(keys) -> hash
  *
- *  Possible keys: :start_time, :end_time, :text, :no_speech_prob, :speaker_turn_next
+ *  Possible keys: :start_time, :end_time, :text, :no_speech_prob, :speaker_turn_next, :n_tokens
  *
  *   whisper.each_segment do |segment|
  *     segment => {start_time:, end_time:, text:, no_speech_prob:, speaker_turn_next:}
@@ -159,7 +216,7 @@ ruby_whisper_segment_deconstruct_keys(VALUE self, VALUE keys)
   ruby_whisper_segment *rws;
   TypedData_Get_Struct(self, ruby_whisper_segment, &ruby_whisper_segment_type, rws);
   ruby_whisper *rw;
-  TypedData_Get_Struct(rws->context, ruby_whisper, &ruby_whisper_type, rw);
+  GetContext(rws->context, rw);
 
   VALUE hash = rb_hash_new();
   long n_keys;
@@ -189,13 +246,16 @@ ruby_whisper_segment_deconstruct_keys(VALUE self, VALUE keys)
     if (key == sym_speaker_turn_next) {
       rb_hash_aset(hash, key, ruby_whisper_segment_get_speaker_turn_next(self));
     }
+    if (key == sym_n_tokens) {
+      rb_hash_aset(hash, key, ruby_whisper_segment_get_n_tokens(self));
+    }
   }
 
   return hash;
 }
 
 void
-init_ruby_whisper_segment(VALUE *mWhisper, VALUE *cContext)
+init_ruby_whisper_segment(VALUE *mWhisper)
 {
   cSegment  = rb_define_class_under(*mWhisper, "Segment", rb_cObject);
 
@@ -204,6 +264,7 @@ init_ruby_whisper_segment(VALUE *mWhisper, VALUE *cContext)
   sym_text = ID2SYM(rb_intern("text"));
   sym_no_speech_prob = ID2SYM(rb_intern("no_speech_prob"));
   sym_speaker_turn_next = ID2SYM(rb_intern("speaker_turn_next"));
+  sym_n_tokens = ID2SYM(rb_intern("n_tokens"));
   key_names = rb_ary_new3(
     N_KEY_NAMES,
     sym_start_time,
@@ -219,5 +280,8 @@ init_ruby_whisper_segment(VALUE *mWhisper, VALUE *cContext)
   rb_define_method(cSegment, "speaker_turn_next?", ruby_whisper_segment_get_speaker_turn_next, 0);
   rb_define_method(cSegment, "text", ruby_whisper_segment_get_text, 0);
   rb_define_method(cSegment, "no_speech_prob", ruby_whisper_segment_get_no_speech_prob, 0);
+  rb_define_method(cSegment, "n_tokens", ruby_whisper_segment_get_n_tokens, 0);
+  rb_define_method(cSegment, "each_token", ruby_whisper_segment_each_token, 0);
   rb_define_method(cSegment, "deconstruct_keys", ruby_whisper_segment_deconstruct_keys, 1);
 }
+#undef N_KEY_NAMES
