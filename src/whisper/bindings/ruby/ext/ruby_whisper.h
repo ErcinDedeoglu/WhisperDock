@@ -1,6 +1,8 @@
 #ifndef RUBY_WHISPER_H
 #define RUBY_WHISPER_H
 
+#include <ruby.h>
+#include <ruby/memory_view.h>
 #include "whisper.h"
 
 typedef struct {
@@ -55,6 +57,13 @@ typedef struct {
   struct whisper_vad_context *context;
 } ruby_whisper_vad_context;
 
+typedef struct parsed_samples_t {
+  float *samples;
+  int n_samples;
+  rb_memory_view_t memview;
+  bool memview_exported;
+} parsed_samples_t;
+
 #define GetContext(obj, rw) do { \
   TypedData_Get_Struct((obj), ruby_whisper, &ruby_whisper_type, (rw)); \
   if ((rw)->context == NULL) { \
@@ -67,6 +76,17 @@ typedef struct {
   if ((rwt)->token_data == NULL) { \
     rb_raise(rb_eRuntimeError, "Not initialized"); \
   } \
+} while (0)
+
+#define GetVADContext(obj, rwvc) do { \
+    TypedData_Get_Struct((obj), ruby_whisper_vad_context, &ruby_whisper_vad_context_type, (rwvc)); \
+    if ((rwvc)->context == NULL) { \
+      rb_raise(rb_eRuntimeError, "Not initialized"); \
+    } \
+} while (0)
+
+#define GetVADParams(obj, rwvp) do { \
+  TypedData_Get_Struct((obj), ruby_whisper_vad_params, &ruby_whisper_vad_params_type, (rwvp)); \
 } while (0)
 
 #define GetVADSegments(obj, rwvss) do { \
