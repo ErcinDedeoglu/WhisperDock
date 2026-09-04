@@ -10,14 +10,14 @@
 
 ## Current State
 
-- Phase: verify green; next sync then archive
+- Phase: sync complete; next archive
 - Hypothesis: config + 413 JSON handler → oversized POST never hits ffmpeg; leaked_tmp=[]
 - Expected signal: 413 application/json; existing 5 tests green
 - Tasks: 1.1–2.2 done
 - Retry count: 0
 - Confidence: high (unittest 6/6 + independent holdout)
 - Verification: local pass; Chrome N/A; CI n/a no push
-- Next action: OpenSpec sync delta into openspec/specs/transcribe-api
+- Next action: OpenSpec archive bound-transcribe-upload-size
 
 ## Facts / Assumptions / Open questions
 
@@ -33,3 +33,4 @@
 - 2026-09-04 apply 2.1: unittest 6/6 OK including oversized 413 leaked_tmp=[]
 - 2026-09-04 apply 2.2: holdout test_missing_file_returns_json_400 ok
 - 2026-09-04 verify: unittest 6/6; independent 400+413; validate --strict ok; Chrome N/A
+- 2026-09-04 sync: ADDED oversized-upload 413 into openspec/specs/transcribe-api; validate --specs --strict ok
