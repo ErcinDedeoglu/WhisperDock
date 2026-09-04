@@ -383,3 +383,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** slim-bookworm-runtime-not-floating-slim
 - **Next experiment:** ffmpeg still pulls mesa/llvm on slim (~1 GB); try a static ffmpeg or drop libavdevice.
+
+## 2026-09-04 — static-ffmpeg-drop-mesa
+
+- **Date:** 2026-09-04
+- **Change:** static-ffmpeg-drop-mesa
+- **Finding:** Debian ffmpeg on slim pulled libllvm15 (107 MB) and Mesa via libavdevice59. Image 1.06 GB.
+- **Hypothesis:** COPY mwader/static-ffmpeg:9.0.1 + apt libgomp1 only → no libllvm15; ffmpeg works; size < 1.06 GB.
+- **Action:** Runtime COPY `--from=mwader/static-ffmpeg:9.0.1 /ffmpeg /usr/local/bin/ffmpeg`; drop debian ffmpeg/libsndfile1.
+- **Evidence:** local 673 MB; llvm_st=1; ffmpeg 9.0.1; conv-ok; cli-ok. Hub `0d6126d` same. Unittest 8/8. GHA 33858813688 success.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-static-ffmpeg-drop-mesa`.
+- **Failure mode:** johnvansickle is amd64-only; would break GHA arm64.
+- **Confidence:** high.
+- **Applicability:** Debian images that apt-install ffmpeg only to resample audio.
+- **Superseded lesson:** none
+- **Pattern-Key:** static-ffmpeg-copy-from-not-apt
+- **Next experiment:** drop unused debian ffmpeg from builder (build-time only; no runtime size).
