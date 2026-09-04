@@ -49,7 +49,7 @@ def transcribe_audio():
 
         try:
             subprocess.run([
-                "ffmpeg", "-y", "-i", temp_path,
+                "ffmpeg", "-y", "-nostdin", "-i", temp_path,
                 "-ar", "16000",
                 "-ac", "1",
                 "-vn",
