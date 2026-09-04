@@ -2,9 +2,8 @@ import argparse
 import torch
 from whisper import load_model
 import os
-from openvino.tools import mo
 from openvino.frontend import FrontEndManager
-from openvino.runtime import serialize
+from openvino import serialize
 import shutil
 
 def convert_encoder(hparams, encoder, mname):

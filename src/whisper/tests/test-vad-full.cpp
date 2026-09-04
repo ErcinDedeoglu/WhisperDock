@@ -27,6 +27,11 @@ int main() {
             whisper_model_path.c_str(),
             cparams);
 
+    if (!wctx) {
+        fprintf(stderr, "failed to load model '%s'\n", whisper_model_path.c_str());
+        return 1;
+    }
+
     struct whisper_full_params wparams = whisper_full_default_params(WHISPER_SAMPLING_BEAM_SEARCH);
     wparams.vad            = true;
     wparams.vad_model_path = vad_model_path.c_str();
@@ -49,6 +54,30 @@ int main() {
            whisper_full_get_segment_text(wctx, 0)) == 0);
     assert(whisper_full_get_segment_t0(wctx, 0) == 32);
     assert(whisper_full_get_segment_t1(wctx, 0) == 1051);
+
+    // token times mapped back to the original timeline: ordered, non-negative duration
+    const int n_tokens = whisper_full_n_tokens(wctx, 0);
+    assert(n_tokens > 0);
+    int64_t prev_t0 = -1;
+    for (int j = 0; j < n_tokens; ++j) {
+        const int64_t t0 = whisper_full_get_token_t0(wctx, 0, j);
+        const int64_t t1 = whisper_full_get_token_t1(wctx, 0, j);
+        assert(t0 >= 0 && t1 >= t0);
+        assert(t0 >= prev_t0);
+        prev_t0 = t0;
+    }
+
+    // internal VAD speech segments, on the original audio timeline (centiseconds)
+    const int n_vad = whisper_full_n_vad_segments(wctx);
+    assert(n_vad > 0);
+    int64_t vad_prev_end = -1;
+    for (int i = 0; i < n_vad; ++i) {
+        const int64_t t0 = whisper_full_get_vad_segment_t0(wctx, i);
+        const int64_t t1 = whisper_full_get_vad_segment_t1(wctx, i);
+        assert(t1 > t0);
+        assert(t0 >= vad_prev_end); // segments are ordered and non-overlapping
+        vad_prev_end = t1;
+    }
 
     whisper_free(wctx);
 
