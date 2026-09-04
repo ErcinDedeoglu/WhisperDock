@@ -575,3 +575,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** gha-job-timeout-below-360
 - **Next experiment:** `concurrency` on publish with `cancel-in-progress: true` so overlapping main pushes do not stack Hub publishes.
+
+## 2026-09-04 — serialize-publish-per-ref
+
+- **Date:** 2026-09-04
+- **Change:** serialize-publish-per-ref
+- **Finding:** Overlapping main publishes could race Hub tags; no `concurrency:`.
+- **Hypothesis:** Per-ref group with `cancel-in-progress: false` → Docker Images still succeeds.
+- **Action:** Adapted from lesson's `true` (would abort in-flight Hub push). `group: ${{ github.workflow }}-${{ github.ref }}`. Synced `docker-image-publish`.
+- **Evidence:** yaml-ok. Unittest 8/8. GHA 33863782819 success 2m12s. Hub `d48c70a` cli-ok.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-serialize-publish-per-ref`.
+- **Failure mode:** `cancel-in-progress: true` on a mutating Hub push can leave a partial tag. Coarse group without `github.workflow` cancels other workflows.
+- **Confidence:** high for single-run success; overlap cancellation not exercised this slice.
+- **Applicability:** registry-publish workflows that must not abort in-flight `docker push`.
+- **Superseded lesson:** prior next-experiment `cancel-in-progress: true` for this publish job.
+- **Pattern-Key:** gha-concurrency-queue-mutating-deploys
+- **Next experiment:** `timeout-minutes` on `sync-whisper.yml` jobs (does not start Docker Images).
