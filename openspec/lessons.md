@@ -159,3 +159,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** leftover-readme-author-notes-after-examples
 - **Next experiment:** hashed pip lockfile (transitive pins).
+
+## 2026-09-04 — pin-python-transitive-deps
+
+- **Date:** 2026-09-04
+- **Change:** pin-python-transitive-deps
+- **Finding:** Direct Flask/gunicorn pins left transitives floating (Werkzeug, Jinja2, MarkupSafe, blinker, click, itsdangerous).
+- **Hypothesis:** `pip freeze` file + `--no-deps -r` → image metadata matches freeze; unittest 6/6.
+- **Action:** `src/requirements.txt` from `whisperdock-local:pinned` freeze; Dockerfile COPY then `--no-deps -r`. Rejected hashes (arch wheels).
+- **Evidence:** Local and Hub `47d5723` metadata `3.1.3 26.2.0 3.1.8 3.1.6 3.0.3 1.9.0 8.5.0 2.2.0`. Unittest 6/6. GHA 33850394394 success.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-pin-python-transitive-deps`.
+- **Failure mode:** none. MarkupSafe selected aarch64 locally and still 3.0.3 on amd64 Hub.
+- **Confidence:** high.
+- **Applicability:** Docker images that pin only top-level pip packages.
+- **Superseded lesson:** none
+- **Pattern-Key:** pip-direct-pins-leave-transitives-floating
+- **Next experiment:** hash-checking with multi-arch `--hash` lines, or gunicorn request-size vs Flask 16 MB.
