@@ -10,4 +10,6 @@
 
 ## Remote
 
-Pending origin push and GHA.
+- Push: `main` `47d5723` → `origin/main`
+- CI/CD: GitHub Actions `🐳 Docker Images` run 33850394394 success (3m7s)
+- Environment: `dublok/whisperdock:47d5723` (linux/amd64) `3.1.3 26.2.0 3.1.8 3.1.6 3.0.3 1.9.0 8.5.0 2.2.0`

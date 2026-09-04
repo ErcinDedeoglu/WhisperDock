@@ -1,3 +1,16 @@
+## MODIFIED Requirements
+
+### Requirement: Service image pins Flask and gunicorn
+The service container SHALL install Flask 3.1.3 and gunicorn 26.2.0 from a frozen requirements file. The image build MUST NOT resolve those packages as unpinned latest.
+
+#### Scenario: Image reports pinned Flask and gunicorn
+- **WHEN** the built service image is started with `python -c "from importlib.metadata import version; print(version('flask')); print(version('gunicorn'))"`
+- **THEN** the printed versions are `3.1.3` and `26.2.0`
+
+#### Scenario: Dockerfile pip install is version-pinned
+- **WHEN** the service Dockerfile pip install instruction is read
+- **THEN** it installs from a requirements file with `-r` that pins `Flask==3.1.3` and `gunicorn==26.2.0`
+
 ## ADDED Requirements
 
 ### Requirement: Service image pins Flask gunicorn and transitives
