@@ -31,3 +31,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** eol-cpython-docker-base-blocks-current-wheels
 - **Next experiment:** Bound upload size via `MAX_CONTENT_LENGTH` in `src/app.py`. Still do not push.
+
+## 2026-09-04 — bound-transcribe-upload-size
+
+- **Date:** 2026-09-04
+- **Change:** bound-transcribe-upload-size
+- **Finding:** Flask 3.1.2 `MAX_CONTENT_LENGTH` was `None`; POST `/transcribe` saved unbounded bodies then ran ffmpeg.
+- **Hypothesis:** `app.config['MAX_CONTENT_LENGTH'] = 16 * 1000 * 1000` plus `@app.errorhandler(413)` JSON → oversized POST is 413 `application/json` with `error` and `leaked_tmp=[]` before ffmpeg.
+- **Action:** Config + 413 `jsonify` handler in `src/app.py`; unittest oversized `huge.wav`; holdout missing-file 400. Synced `transcribe-api`; archived.
+- **Evidence:** Unittest 6/6 exit 0. Independent: missing=400 `No file part`; oversized=413 JSON. `openspec validate --strict` ok. Chrome N/A. Commits 9f66f0f / 1aaa043 / 9f36ea7 not pushed.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-bound-transcribe-upload-size`. No push.
+- **Failure mode:** none. Default 413 is HTML; handler is required for the JSON contract. Werkzeug dev server may connection-reset; test_client returns 413.
+- **Confidence:** high local test-client; gunicorn/proxy limits unproven.
+- **Applicability:** Flask JSON APIs with file uploads and `MAX_CONTENT_LENGTH` left at default `None`.
+- **Superseded lesson:** none
+- **Pattern-Key:** flask-default-unbounded-upload-html-413
+- **Next experiment:** Restrict `.github/workflows/publish-docker.yml` so non-release pushes do not publish `dublok/whisperdock`. Until then, do not push.
