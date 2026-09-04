@@ -511,3 +511,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** gha-uses-full-sha-plus-version-comment
 - **Next experiment:** least-privilege `permissions:` on publish-docker.yml (`contents: read`).
+
+## 2026-09-04 — restrict-publish-token-permissions
+
+- **Date:** 2026-09-04
+- **Change:** restrict-publish-token-permissions
+- **Finding:** `publish-docker.yml` had no `permissions:` block; `GITHUB_TOKEN` followed repo default and is reachable via `github.token`.
+- **Hypothesis:** Top-level `contents: read` → unspecified scopes `none`; Hub still publishes via Docker secrets; Docker Images succeeds.
+- **Action:** Add `permissions: contents: read` after `on:`. Leave `sync-whisper.yml` write scopes. Synced `docker-image-publish`.
+- **Evidence:** yaml-ok `permissions={'contents': 'read'}`. Unittest 8/8. GHA 33862154345 success. Hub `84e8233` cli-ok (`--platform linux/amd64`, path `/app/whisper/build/bin/whisper-cli`).
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-restrict-publish-token-permissions`.
+- **Failure mode:** `docker pull` without `--platform linux/amd64` fails on arm64 hosts. `whisper-cli` is not on PATH.
+- **Confidence:** high.
+- **Applicability:** Hub-publish workflows that checkout then push with registry secrets, not `GITHUB_TOKEN` write.
+- **Superseded lesson:** none
+- **Pattern-Key:** gha-top-level-contents-read
+- **Next experiment:** `persist-credentials: false` on `actions/checkout` so the job token is not left in git config.
