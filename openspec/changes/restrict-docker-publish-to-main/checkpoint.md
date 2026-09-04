@@ -10,14 +10,14 @@
 
 ## Current State
 
-- Phase: verify green; next sync
+- Phase: sync complete; next archive
 - Hypothesis: main-only push filter stops feature-branch publishes; dispatch remains
 - Expected signal: parse assert exit 0
 - Tasks: 1.1–2.1 done
 - Retry count: 0
 - Confidence: high local YAML; remote GHA unproven until first allowed push
 - Verification: local pass; Chrome N/A; CI n/a no push
-- Next action: OpenSpec sync docker-image-publish into openspec/specs/
+- Next action: OpenSpec archive restrict-docker-publish-to-main
 
 ## Facts / Assumptions / Open questions
 
@@ -31,3 +31,4 @@
 - 2026-09-04 apply 1.1: branches=['main']; parse OK
 - 2026-09-04 apply 2.1: sync-whisper still dispatches; build-push push: true
 - 2026-09-04 verify: YAML_OK; unittest 6/6; validate --strict ok
+- 2026-09-04 sync: created openspec/specs/docker-image-publish/spec.md
