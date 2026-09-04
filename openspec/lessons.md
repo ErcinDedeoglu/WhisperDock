@@ -447,3 +447,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** dockerignore-at-context-root
 - **Next experiment:** Dependabot docker ecosystem for digest bumps, or document HEALTHCHECK in README if missing.
+
+## 2026-09-04 — add-dependabot-docker
+
+- **Date:** 2026-09-04
+- **Change:** add-dependabot-docker
+- **Finding:** Digest-pinned Dockerfile had no Dependabot config. README already documents `/health`.
+- **Hypothesis:** docker `/src` weekly YAML → keys present; Docker Images does not start.
+- **Action:** `.github/dependabot.yml` version 2, docker, `/src`, weekly.
+- **Evidence:** dependabot-ok. Unittest 8/8. No 🐳 run for `fa71bd8`. Dependabot Updates 33860769501 success.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-add-dependabot-docker`.
+- **Failure mode:** `directory: /` would miss `src/Dockerfile`.
+- **Confidence:** high for config; first image-bump PR not observed.
+- **Applicability:** digest-pinned Dockerfiles without Dependabot.
+- **Superseded lesson:** none
+- **Pattern-Key:** dependabot-docker-directory-is-dockerfile-dir
+- **Next experiment:** Dependabot github-actions ecosystem for workflow action pins.

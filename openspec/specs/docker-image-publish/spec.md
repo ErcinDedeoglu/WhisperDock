@@ -41,3 +41,10 @@ The Docker image workflow SHALL start an automatic push-on-git-push job only whe
 #### Scenario: paths-ignore is absent on push
 - **WHEN** the published workflow file's `on.push` mapping is read
 - **THEN** it does not contain `paths-ignore`
+
+### Requirement: Dependabot watches the service Dockerfile
+The repository SHALL declare Dependabot version updates for the Docker ecosystem in `/src` so pinned base image digests can be bumped.
+
+#### Scenario: dependabot.yml enables docker in src
+- **WHEN** `.github/dependabot.yml` is read
+- **THEN** it contains `package-ecosystem: docker` and `directory: /src`
