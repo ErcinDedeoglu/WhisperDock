@@ -191,3 +191,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** pip-freeze-without-hashes-trusts-pypi-bytes
 - **Next experiment:** gunicorn request-size vs Flask 16 MB (needs evidence), or non-root USER in Dockerfile.
+
+## 2026-09-04 — run-gunicorn-as-non-root
+
+- **Date:** 2026-09-04
+- **Change:** run-gunicorn-as-non-root
+- **Finding:** Image ran gunicorn as root (`User=` empty; `id` uid=0).
+- **Hypothesis:** `USER app` uid 10001 → inspect User=app; `id` not 0; unittest still 0.
+- **Action:** groupadd/useradd 10001 without `-r` (SYS_UID_MAX 999 warned); USER app. No chown /app.
+- **Evidence:** Local and Hub `f93ec9f` User=app uid=10001. Unittest 6/6. GHA 33851979087 success.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-run-gunicorn-as-non-root`.
+- **Failure mode:** first try used `-r -u 10001` and Debian warned; dropped `-r`.
+- **Confidence:** high for default user; whisper success path still not run as app.
+- **Applicability:** Docker Flask/gunicorn images that omit USER.
+- **Superseded lesson:** none
+- **Pattern-Key:** gunicorn-as-root-when-dockerfile-omits-user
+- **Next experiment:** gunicorn request-size vs Flask 16 MB (still needs evidence).
