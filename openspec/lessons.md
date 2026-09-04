@@ -127,3 +127,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** dockerfile-legacy-env-space-separator
 - **Next experiment:** unused `import socket` in `src/app.py` (polish).
+
+## 2026-09-04 — remove-unused-socket-import
+
+- **Date:** 2026-09-04
+- **Change:** remove-unused-socket-import
+- **Finding:** `src/app.py` imported `socket` and never used it (`ast` unused).
+- **Hypothesis:** Delete the import → no `import socket`; unittest still 6/6.
+- **Action:** One-line delete. `skip_specs`. Design skipped.
+- **Evidence:** Unittest 6/6; `ast` unused `[]`; GHA 33849081771 success. Chrome N/A.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-remove-unused-socket-import`.
+- **Failure mode:** none.
+- **Confidence:** high.
+- **Applicability:** Flask apps with leftover stdlib imports.
+- **Superseded lesson:** none
+- **Pattern-Key:** unused-stdlib-import-no-behavior
+- **Next experiment:** hashed pip lockfile (transitive pins) or README leftover template prose.
