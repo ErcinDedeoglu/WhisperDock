@@ -255,3 +255,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** dockerfile-last-workdir-is-runtime-cwd
 - **Next experiment:** subprocess timeout vs gunicorn 300s, or ffmpeg `-nostdin`.
+
+## 2026-09-04 — ffmpeg-disable-stdin-interaction
+
+- **Date:** 2026-09-04
+- **Change:** ffmpeg-disable-stdin-interaction
+- **Finding:** ffmpeg `-y -i file` with no `-nostdin`; stdin interaction on by default.
+- **Hypothesis:** `-nostdin` before `-i` → unittest 0; argv contains `-nostdin`; no `Press [q] to stop`.
+- **Action:** add `-nostdin` to ffmpeg argv.
+- **Evidence:** unittest 7/7; q-prompt gone; Hub `1499632` source True. GHA 33854914811 success.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-ffmpeg-disable-stdin-interaction`.
+- **Failure mode:** none.
+- **Confidence:** high for argv; hang not reproduced under gunicorn.
+- **Applicability:** ffmpeg subprocess from a WSGI worker with a file `-i`.
+- **Superseded lesson:** none
+- **Pattern-Key:** ffmpeg-stdin-interaction-hangs-noninteractive-workers
+- **Next experiment:** subprocess `timeout=` vs gunicorn `--timeout 300`.
