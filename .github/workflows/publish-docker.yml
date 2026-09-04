@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'src/**'
+      - '.github/workflows/publish-docker.yml'
 
 jobs:
   linux-build-and-push:
