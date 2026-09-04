@@ -1,4 +1,4 @@
-FROM python:3.12-bookworm AS builder
+FROM python:3.12-bookworm@sha256:581429e3df12d76e6af4be5ab7d0e7fc2013eb57dc23d2de691411c8efdbb970 AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
@@ -20,7 +20,7 @@ RUN bash ./models/download-ggml-model.sh base.en
 RUN make CMAKE_ARGS="-DGGML_NATIVE=OFF"
 RUN test -x /app/whisper/build/bin/whisper-cli
 
-FROM python:3.12-slim-bookworm
+FROM python:3.12-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
@@ -29,7 +29,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1=12.2.0-14+deb12u1 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=mwader/static-ffmpeg:9.0.1 /ffmpeg /usr/local/bin/ffmpeg
+COPY --from=mwader/static-ffmpeg:9.0.1@sha256:54e55b0cb8f672870fc38ceb2e6c411855cb3b39c505f5f3b2505ee01ed5f2b7 /ffmpeg /usr/local/bin/ffmpeg
 
 WORKDIR /app
 COPY --from=builder /app/whisper/build/bin/whisper-cli /app/whisper/build/bin/whisper-cli
