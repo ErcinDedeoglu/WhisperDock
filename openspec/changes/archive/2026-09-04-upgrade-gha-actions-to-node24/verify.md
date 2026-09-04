@@ -16,4 +16,8 @@
 
 ## Remote
 
-Pending origin push and GHA annotation check.
+- Push: `main` `b3a051b` → `origin/main`
+- CI/CD: GitHub Actions `🐳 Docker Images` run 33847832202 success (2m57s)
+- Node 20 annotation: absent (hypothesis confirmed)
+- New annotation (next finding): Dockerfile LegacyKeyValueFormat on `ENV` lines 5–6
+- Environment: Hub push succeeded as part of that job
