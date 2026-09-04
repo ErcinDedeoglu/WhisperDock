@@ -107,3 +107,14 @@ The service Dockerfile SHALL install `build-essential`, `cmake`, `ffmpeg`, `git`
 #### Scenario: Dockerfile pins the five apt packages
 - **WHEN** the service Dockerfile apt-get install instruction is read
 - **THEN** it contains `build-essential=12.9`, `cmake=3.25.1-1`, `ffmpeg=7:5.1.9-0+deb12u1`, `git=1:2.39.5-0+deb12u3`, and `libsndfile1=1.2.0-1+deb12u1`
+
+### Requirement: Runtime image omits C++ build tools
+The published service image SHALL NOT install `cmake`. It MUST still provide `/app/whisper/build/bin/whisper-cli`.
+
+#### Scenario: cmake is not installed
+- **WHEN** the built service image is started with `dpkg-query -W cmake`
+- **THEN** the command exits non-zero
+
+#### Scenario: whisper-cli remains
+- **WHEN** the built service image is started with `test -x /app/whisper/build/bin/whisper-cli`
+- **THEN** the command exits 0

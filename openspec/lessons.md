@@ -351,3 +351,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** apt-get-unpinned-direct-packages
 - **Next experiment:** multi-stage runtime without build-essential (M; ldd whisper-cli first).
+
+## 2026-09-04 — multi-stage-drop-build-tools
+
+- **Date:** 2026-09-04
+- **Change:** multi-stage-drop-build-tools
+- **Finding:** 2.34 GB image shipped cmake, compilers, and whisper.cpp sources. ldd needs four .so + libgomp1.
+- **Hypothesis:** runtime COPY whisper-cli+libs+model → cmake absent; cli works; size < 2.34 GB.
+- **Action:** builder + runtime bookworm; COPY five binaries/libs + model; runtime apt ffmpeg/libsndfile1/libgomp1.
+- **Evidence:** local 2.21 GB; cmake_st=1; cli-ok. Hub `0b47593` same. Unittest 8/8. GHA 33857454093 success.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-multi-stage-drop-build-tools`.
+- **Failure mode:** python:3.12-bookworm still ships g++/git; `which g++` is not a valid absence check.
+- **Confidence:** high for cmake/source drop; modest size win.
+- **Applicability:** images that compile C++ then ship the compiler.
+- **Superseded lesson:** none
+- **Pattern-Key:** multi-stage-copy-cli-not-compiler
+- **Next experiment:** python:3.12-slim runtime to drop base g++ (need ffmpeg on slim).
