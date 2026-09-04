@@ -112,7 +112,7 @@ Adjust the example response to match the actual output format of your transcript
 ### Prerequisites
 
 - Docker
-- Python 3.8
+- Python 3.12
 - C++ build tools (cmake, make, g++)
 - ffmpeg
 

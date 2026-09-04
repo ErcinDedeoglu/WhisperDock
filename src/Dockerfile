@@ -1,5 +1,5 @@
 # Use a base image with both C++ and Python
-FROM python:3.8
+FROM python:3.12-bookworm
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE 1
