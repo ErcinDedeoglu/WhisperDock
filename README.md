@@ -72,6 +72,16 @@ curl -X POST -F 'file=@/path/to/your/audio.wav' http://localhost:5000/transcribe
 
 The service converts ffmpeg-readable audio to 16 kHz mono WAV before transcription. Uploads larger than 16 MB are rejected.
 
+Liveness:
+
+```bash
+curl http://localhost:5000/health
+```
+
+```json
+{"status": "ok"}
+```
+
 ### Example Response
 
 Upon successful transcription, the service will return a JSON response containing the transcription along with the timestamps for each transcribed segment. An example response might look like this:
