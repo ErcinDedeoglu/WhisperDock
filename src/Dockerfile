@@ -28,8 +28,9 @@ WORKDIR /app/whisper
 # Download the model by running the script
 RUN bash ./models/download-ggml-model.sh base.en
 
-# Build whisper-cli (Makefile's default target runs cmake into build/bin)
-RUN make
+# GGML_NATIVE=ON compiles for the builder CPU (AVX-512 on GitHub runners),
+# which SIGILLs on qemu and on older amd64 hosts. Keep a portable baseline.
+RUN make CMAKE_ARGS="-DGGML_NATIVE=OFF"
 RUN test -x /app/whisper/build/bin/whisper-cli
 
 # Copy the Flask app to the container (assuming it's in the src directory)
