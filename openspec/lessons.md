@@ -319,3 +319,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** health-route-undocumented-in-readme
 - **Next experiment:** apt `--no-install-recommends` (combine with apt-lists cleanup in one RUN).
+
+## 2026-09-04 — apt-no-install-recommends
+
+- **Date:** 2026-09-04
+- **Change:** apt-no-install-recommends
+- **Finding:** apt install lacked `--no-install-recommends`; lists removed in a later RUN.
+- **Hypothesis:** one RUN with the flag + `rm lists` → ffmpeg still works; unittest 0.
+- **Action:** merged apt RUNs; sorted packages.
+- **Evidence:** local and Hub `2b054f2` ffmpeg 5.1.9. Unittest 8/8. GHA 33856283056 success.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-apt-no-install-recommends`.
+- **Failure mode:** none; ffmpeg still pulled many codecs as dependencies.
+- **Confidence:** high for Dockerfile shape; image size delta not measured.
+- **Applicability:** Debian Dockerfiles that split apt install and list cleanup.
+- **Superseded lesson:** none
+- **Pattern-Key:** apt-install-recommends-and-lists-in-separate-layer
+- **Next experiment:** drop build-essential after compile (multi-stage), or pin apt package versions.
