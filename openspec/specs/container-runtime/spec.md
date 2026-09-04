@@ -159,3 +159,10 @@ The service Dockerfile SHALL pin `python:3.12-bookworm`, `python:3.12-slim-bookw
 #### Scenario: Dockerfile pins static-ffmpeg by digest
 - **WHEN** the service Dockerfile is read
 - **THEN** it contains `mwader/static-ffmpeg:9.0.1@sha256:`
+
+### Requirement: Dependabot watches hashed pip requirements
+The repository SHALL declare Dependabot version updates for the pip ecosystem in `/src` so hashed `requirements.txt` pins can be bumped.
+
+#### Scenario: dependabot.yml enables pip in src
+- **WHEN** `.github/dependabot.yml` is read
+- **THEN** it contains `package-ecosystem: pip` and `directory: /src`

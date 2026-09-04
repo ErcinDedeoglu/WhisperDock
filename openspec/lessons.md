@@ -479,3 +479,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** dependabot-github-actions-directory-slash
 - **Next experiment:** Dependabot pip for hashed requirements.txt, or SHA-pin GHA actions.
+
+## 2026-09-04 — add-dependabot-pip
+
+- **Date:** 2026-09-04
+- **Change:** add-dependabot-pip
+- **Finding:** Hashed `src/requirements.txt` had no Dependabot pip ecosystem.
+- **Hypothesis:** pip `/src` weekly → keys present; Docker Images does not start.
+- **Action:** Third updates entry; keep docker `/src` and github-actions `/`.
+- **Evidence:** dependabot-ok. Unittest 8/8. No 🐳 for `dc711ff`. Dependabot Updates 33861245411 success (`pip in /src`).
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-add-dependabot-pip`.
+- **Failure mode:** `directory: /` would miss `src/requirements.txt`.
+- **Confidence:** high for config; hash-rewriting on bump PRs unobserved.
+- **Applicability:** hashed requirements.txt not covered by Dependabot.
+- **Superseded lesson:** none
+- **Pattern-Key:** dependabot-pip-directory-is-requirements-dir
+- **Next experiment:** SHA-pin GitHub Actions (`uses: org/action@<sha> # vN`).
