@@ -111,3 +111,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** gha-node20-action-majors-emit-deprecation
 - **Next experiment:** Dockerfile `ENV KEY value` → `ENV KEY=value` (LegacyKeyValueFormat) or unused `import socket`.
+
+## 2026-09-04 — fix-dockerfile-env-key-value-format
+
+- **Date:** 2026-09-04
+- **Change:** fix-dockerfile-env-key-value-format
+- **Finding:** `ENV PYTHONDONTWRITEBYTECODE 1` / `ENV PYTHONUNBUFFERED 1` triggered BuildKit LegacyKeyValueFormat (GHA 33848114073; local `--check` 2 warnings).
+- **Hypothesis:** `ENV KEY=1` → `--check` 0 warnings; GHA annotation gone; unittest still 0.
+- **Action:** Two-line `=` conversion. Rejected `# check=skip`. Synced `container-runtime`; archived.
+- **Evidence:** Baseline `--check` 2 warnings. After: no warnings. Unittest 6/6. GHA 33848503848 success 2m24s with no LegacyKeyValueFormat annotation.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-fix-dockerfile-env-key-value-format`.
+- **Failure mode:** none.
+- **Confidence:** high local check + GHA.
+- **Applicability:** Dockerfiles still using space-separated `ENV key value`.
+- **Superseded lesson:** none
+- **Pattern-Key:** dockerfile-legacy-env-space-separator
+- **Next experiment:** unused `import socket` in `src/app.py` (polish).
