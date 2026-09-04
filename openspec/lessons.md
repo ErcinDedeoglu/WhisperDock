@@ -495,3 +495,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** dependabot-pip-directory-is-requirements-dir
 - **Next experiment:** SHA-pin GitHub Actions (`uses: org/action@<sha> # vN`).
+
+## 2026-09-04 — pin-gha-action-shas
+
+- **Date:** 2026-09-04
+- **Change:** pin-gha-action-shas
+- **Finding:** Workflows used mutable `@v7`/`@v4` tags with Docker Hub secrets.
+- **Hypothesis:** SHA + `# vN` → 40-hex uses; Docker Images succeeds.
+- **Action:** Pin 7 uses lines from `gh api repos/.../commits/<tag>`.
+- **Evidence:** pins-ok 7. Unittest 8/8. GHA 33861558847 success. Hub `3d1d460` cli-ok.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-pin-gha-action-shas`.
+- **Failure mode:** omitting `# vN` would break Dependabot SHA bumps.
+- **Confidence:** high.
+- **Applicability:** workflows that still reference actions by mutable tags.
+- **Superseded lesson:** none
+- **Pattern-Key:** gha-uses-full-sha-plus-version-comment
+- **Next experiment:** least-privilege `permissions:` on publish-docker.yml (`contents: read`).
