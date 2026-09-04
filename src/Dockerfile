@@ -22,7 +22,7 @@ RUN bash ./models/download-ggml-model.sh base.en
 RUN make CMAKE_ARGS="-DGGML_NATIVE=OFF"
 RUN test -x /app/whisper/build/bin/whisper-cli
 
-FROM python:3.12-bookworm
+FROM python:3.12-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
