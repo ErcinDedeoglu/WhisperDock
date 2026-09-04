@@ -30,3 +30,14 @@ The Docker image workflow SHALL use JavaScript actions that declare a Node 24 ru
 #### Scenario: Node 20 majors are absent
 - **WHEN** the Docker image workflow file is searched for the previously used Node 20 tags
 - **THEN** it does not contain `actions/checkout@v4`, `docker/setup-qemu-action@v3`, `docker/setup-buildx-action@v3`, `docker/login-action@v3`, or `docker/build-push-action@v5`
+
+### Requirement: Automatic publish only when image sources change
+The Docker image workflow SHALL start an automatic push-on-git-push job only when the push changes `src/**` or `.github/workflows/publish-docker.yml`. It MUST NOT use `paths-ignore` on the same push event.
+
+#### Scenario: Push path filter is src and the workflow file
+- **WHEN** the published workflow file's `on.push.paths` list is read
+- **THEN** the list contains `src/**` and `.github/workflows/publish-docker.yml`
+
+#### Scenario: paths-ignore is absent on push
+- **WHEN** the published workflow file's `on.push` mapping is read
+- **THEN** it does not contain `paths-ignore`

@@ -223,3 +223,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** docker-healthcheck-needs-2xx-liveness-route
 - **Next experiment:** gunicorn `-w 4` memory vs whisper workers, or skip docs-only Docker rebuilds.
+
+## 2026-09-04 — skip-docs-only-docker-publish
+
+- **Date:** 2026-09-04
+- **Change:** skip-docs-only-docker-publish
+- **Finding:** Docs-only main pushes rebuilt Hub (33852390181, 33853268414, ~2m45s) though Docker context is `src/`.
+- **Hypothesis:** `on.push.paths` src/** + workflow file → apply SHA still runs GHA; later openspec-only SHA does not.
+- **Action:** path allowlist; keep workflow_dispatch. Not paths-ignore.
+- **Evidence:** YAML parse OK. Apply `3a2d365` run 33853785983 success. Archive SHA: no Docker Images run.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-skip-docs-only-docker-publish`.
+- **Failure mode:** none this slice.
+- **Confidence:** high for push path filter; tag pushes still ignore paths (GitHub design).
+- **Applicability:** expensive on-push image workflows whose build context is a subdirectory.
+- **Superseded lesson:** none
+- **Pattern-Key:** gha-path-filter-skip-docs-only-image-publish
+- **Next experiment:** gunicorn `-w 4` memory vs whisper workers (needs RSS evidence).
