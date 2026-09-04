@@ -38,6 +38,8 @@ RUN pip install --no-cache-dir --no-deps --require-hashes --only-binary :all: -r
 
 COPY app.py /app/
 
+WORKDIR /app
+
 RUN groupadd -g 10001 app && useradd --no-log-init -u 10001 -g app app
 USER app
 
