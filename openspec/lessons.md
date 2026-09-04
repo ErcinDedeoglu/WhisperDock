@@ -559,3 +559,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** qemu-only-for-non-native-platforms
 - **Next experiment:** `timeout-minutes` on the publish job so a hung build cannot consume the default 360m runner budget.
+
+## 2026-09-04 — bound-publish-job-timeout
+
+- **Date:** 2026-09-04
+- **Change:** bound-publish-job-timeout
+- **Finding:** Publish job had no `timeout-minutes` (GitHub default 360). Observed runs ~2.5 min.
+- **Hypothesis:** `timeout-minutes: 20` → Docker Images still succeeds.
+- **Action:** Job-level 20. Synced `docker-image-publish`.
+- **Evidence:** yaml-ok 20. Unittest 8/8. GHA 33863404334 success in 2m26s. Hub `68819d7` cli-ok.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-bound-publish-job-timeout`.
+- **Failure mode:** cold whisper.cpp compile >20m would need a raise, not a drop.
+- **Confidence:** high for cached builds; cold-build headroom unproven beyond history.
+- **Applicability:** GHA jobs that omit timeout and can hang on docker build.
+- **Superseded lesson:** none
+- **Pattern-Key:** gha-job-timeout-below-360
+- **Next experiment:** `concurrency` on publish with `cancel-in-progress: true` so overlapping main pushes do not stack Hub publishes.
