@@ -1,9 +1,11 @@
 import io
 import os
 import shutil
+import subprocess
 import tempfile
 import unittest
 import wave
+from unittest.mock import patch
 
 from app import app, parse_transcription
 
@@ -95,6 +97,24 @@ class TranscribeApiTests(unittest.TestCase):
         self.assertIsInstance(payload, dict)
         self.assertIn("error", payload)
         self.assertTrue(payload["error"])
+        self.assertEqual(leaked, [])
+
+    def test_ffmpeg_timeout_returns_json_500_and_leaves_no_temp_files(self):
+        before = set(os.listdir(self._tempdir))
+        with patch(
+            "app.subprocess.run",
+            side_effect=subprocess.TimeoutExpired(cmd="ffmpeg", timeout=240),
+        ):
+            response = self.client.post(
+                "/transcribe",
+                data={"file": (io.BytesIO(_silence_wav_bytes()), "silence.wav")},
+            )
+        after = set(os.listdir(self._tempdir))
+        leaked = sorted(after - before)
+        self.assertEqual(response.status_code, 500)
+        self.assertIn("application/json", response.content_type)
+        self.assertNotIn("text/html", response.content_type)
+        self.assertEqual(response.get_json(), {"error": "Error in transcription"})
         self.assertEqual(leaked, [])
 
     def test_missing_whisper_cli_returns_json_500(self):

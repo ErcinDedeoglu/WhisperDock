@@ -6,6 +6,7 @@ import re
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1000 * 1000
+SUBPROCESS_TIMEOUT = 240
 
 
 @app.errorhandler(413)
@@ -54,9 +55,12 @@ def transcribe_audio():
                 "-ac", "1",
                 "-vn",
                 converted_path
-            ], check=True)
+            ], check=True, timeout=SUBPROCESS_TIMEOUT)
         except FileNotFoundError:
             app.logger.error("ffmpeg executable was not found")
+            return jsonify(error="Error in transcription"), 500
+        except subprocess.TimeoutExpired:
+            app.logger.error("ffmpeg timed out")
             return jsonify(error="Error in transcription"), 500
         except subprocess.CalledProcessError as exc:
             app.logger.error("ffmpeg failed with return code %s", exc.returncode)
@@ -69,9 +73,12 @@ def transcribe_audio():
                 "--model", "/app/whisper/models/ggml-base.en.bin",
                 "--no-gpu",
                 "--no-prints",
-            ], capture_output=True, text=True)
+            ], capture_output=True, text=True, timeout=SUBPROCESS_TIMEOUT)
         except FileNotFoundError:
             app.logger.error("whisper-cli executable was not found")
+            return jsonify(error="Error in transcription"), 500
+        except subprocess.TimeoutExpired:
+            app.logger.error("whisper-cli timed out")
             return jsonify(error="Error in transcription"), 500
 
         app.logger.info(f"Return code: {result.returncode}")
