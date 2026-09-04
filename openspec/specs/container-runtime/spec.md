@@ -27,3 +27,14 @@ The service container SHALL install Flask 3.1.3 and gunicorn 26.2.0. The image b
 #### Scenario: Dockerfile pip install is version-pinned
 - **WHEN** the service Dockerfile pip install instruction for Flask and gunicorn is read
 - **THEN** it specifies `Flask==3.1.3` and `gunicorn==26.2.0` and does not install those two packages without `==`
+
+### Requirement: Dockerfile ENV uses key=value form
+The service Dockerfile SHALL set environment variables with `ENV key=value`. It MUST NOT use the legacy space-separated `ENV key value` form.
+
+#### Scenario: PYTHONDONTWRITEBYTECODE and PYTHONUNBUFFERED use equals
+- **WHEN** the service Dockerfile ENV instructions are read
+- **THEN** they include `ENV PYTHONDONTWRITEBYTECODE=1` and `ENV PYTHONUNBUFFERED=1`
+
+#### Scenario: Legacy space-separated ENV is absent
+- **WHEN** the service Dockerfile is searched for `ENV PYTHONDONTWRITEBYTECODE 1` or `ENV PYTHONUNBUFFERED 1`
+- **THEN** those space-separated forms are not present
