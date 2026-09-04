@@ -63,3 +63,19 @@
 - **Superseded lesson:** standing “never push” constraint from `'**'` publish.
 - **Pattern-Key:** gha-globstar-push-publishes-production-registry
 - **Next experiment:** Discover next finding (gunicorn request size vs Flask 16 MB, or pin Flask/gunicorn, or first `main` push + CI evidence).
+
+## 2026-09-04 — fix-readme-docker-build-context
+
+- **Date:** 2026-09-04
+- **Change:** fix-readme-docker-build-context
+- **Finding:** README `docker build -t whisperdock .` from repo root; Dockerfile and `COPY whisper`/`app.py` live under `src/`. GHA uses `context: ./src`.
+- **Hypothesis:** `docker build -t whisperdock src` matches GHA; README no longer contains `docker build -t whisperdock .`.
+- **Action:** One-line README edit. `skip_specs`; design skipped. Archived.
+- **Evidence:** README_OK grep; unittest 6/6 holdout; validate `--strict` with `skip_specs`. Commit b693dfd / e091fb6.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-fix-readme-docker-build-context`.
+- **Failure mode:** none. Rejected `-f src/Dockerfile .` (COPY still repo-root).
+- **Confidence:** high for docs path; did not run a full image rebuild this slice.
+- **Applicability:** Dockerfiles whose COPY paths assume a subdirectory context documented as repo-root `docker build .`.
+- **Superseded lesson:** none
+- **Pattern-Key:** dockerfile-subdir-context-vs-readme-dot
+- **Next experiment:** Remove unused `import socket` in `src/app.py` (polish) or pin Flask/gunicorn (reliability).
