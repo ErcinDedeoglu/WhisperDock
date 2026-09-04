@@ -335,3 +335,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** apt-install-recommends-and-lists-in-separate-layer
 - **Next experiment:** drop build-essential after compile (multi-stage), or pin apt package versions.
+
+## 2026-09-04 — pin-apt-package-versions
+
+- **Date:** 2026-09-04
+- **Change:** pin-apt-package-versions
+- **Finding:** apt packages unpinned after --no-install-recommends.
+- **Hypothesis:** pin five proven versions → dpkg-query match; unittest 0.
+- **Action:** pin build-essential cmake ffmpeg git libsndfile1.
+- **Evidence:** local and Hub `a12d507` versions match. Unittest 8/8. GHA 33856751873 success.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-pin-apt-package-versions`.
+- **Failure mode:** none.
+- **Confidence:** high for those five; transitives still unpinned.
+- **Applicability:** Debian Dockerfiles that name packages without `=version`.
+- **Superseded lesson:** none
+- **Pattern-Key:** apt-get-unpinned-direct-packages
+- **Next experiment:** multi-stage runtime without build-essential (M; ldd whisper-cli first).
