@@ -16,6 +16,7 @@ jobs:
   linux-build-and-push:
     name: 🐧 Linux Docker Build and Push
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: 🔍 Checkout Repository
