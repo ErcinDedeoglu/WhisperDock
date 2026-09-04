@@ -1879,6 +1879,12 @@ static bool whisper_model_load(struct whisper_model_loader * loader, whisper_con
                 break;
             }
 
+             if (n_dims < 0 || n_dims > 4) {
+                  WHISPER_LOG_ERROR("%s: invalid n_dims %d in model file (expected 0 <= n_dims <= 4)\n", __func__, n_dims);
+                  return false;
+              }
+
+
             int32_t nelements = 1;
             int32_t ne[4] = { 1, 1, 1, 1 };
             for (int i = 0; i < n_dims; ++i) {
@@ -3197,8 +3203,12 @@ static bool log_mel_spectrogram(
     // pad 30 seconds of zeros at the end of audio (480,000 samples) + reflective pad 200 samples at the end of audio
     std::fill(samples_padded.begin() + n_samples + stage_2_pad, samples_padded.begin() + n_samples + stage_1_pad + 2 * stage_2_pad, 0);
 
-    // reflective pad 200 samples at the beginning of audio
-    std::reverse_copy(samples + 1, samples + 1 + stage_2_pad, samples_padded.begin());
+    // reflective pad up to 200 samples at the beginning of audio
+    // clamp the reflected count to the available input so very short audio (n_samples <= stage_2_pad)
+    // does not read past the end of `samples`
+    const int64_t n_reflect = std::min<int64_t>(stage_2_pad, std::max<int64_t>(0, (int64_t) n_samples - 1));
+    std::reverse_copy(samples + 1, samples + 1 + n_reflect, samples_padded.begin() + (stage_2_pad - n_reflect));
+
 
     mel.n_mel     = n_mel;
     // https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/native/SpectralOps.cpp#L936
@@ -3720,7 +3730,21 @@ struct whisper_context * whisper_init_with_params_no_state(struct whisper_model_
     whisper_context * ctx = new whisper_context;
     ctx->params = params;
 
-    if (!whisper_model_load(loader, *ctx)) {
+    // A C++ exception escaping this extern "C" function aborts non-C++ callers
+    // (Rust via whisper-rs, Go via cgo, ...). whisper_model_load can throw
+    // (std::runtime_error here; vk::SystemError from the Vulkan backend during
+    // device/buffer allocation), so funnel any throw into the existing
+    // NULL-return failure path instead of letting it cross the C ABI.
+    bool model_loaded = false;
+    try {
+        model_loaded = whisper_model_load(loader, *ctx);
+    } catch (const std::exception & e) {
+        WHISPER_LOG_ERROR("%s: exception during model load: %s\n", __func__, e.what());
+    } catch (...) {
+        WHISPER_LOG_ERROR("%s: unknown exception during model load\n", __func__);
+    }
+
+    if (!model_loaded) {
         loader->close(loader->context);
         WHISPER_LOG_ERROR("%s: failed to load model\n", __func__);
         delete ctx;
@@ -5007,6 +5031,12 @@ struct whisper_vad_context * whisper_vad_init_with_params(
                 break;
             }
 
+            if (n_dims < 0 || n_dims > 4) {
+                  WHISPER_LOG_ERROR("%s: invalid n_dims %d in model file (expected 0 <= n_dims <= 4)\n", __func__, n_dims);
+                  return nullptr;
+            }
+
+
             int32_t nelements = 1;
             int32_t ne[4] = { 1, 1, 1, 1 };
             for (int i = 0; i < n_dims; ++i) {
@@ -5083,7 +5113,11 @@ struct whisper_vad_context * whisper_vad_init_with_params(
     return vctx;
 }
 
-bool whisper_vad_detect_speech(
+void whisper_vad_reset_state(whisper_vad_context * vctx) {
+    ggml_backend_buffer_clear(vctx->buffer, 0);
+}
+
+bool whisper_vad_detect_speech_no_reset(
         struct whisper_vad_context * vctx,
         const float * samples,
         int n_samples) {
@@ -5094,9 +5128,6 @@ bool whisper_vad_detect_speech(
 
     WHISPER_LOG_INFO("%s: detecting speech in %d samples\n", __func__, n_samples);
     WHISPER_LOG_INFO("%s: n_chunks: %d\n", __func__, n_chunks);
-
-    // Reset LSTM hidden/cell states
-    ggml_backend_buffer_clear(vctx->buffer, 0);
 
     vctx->probs.resize(n_chunks);
     WHISPER_LOG_INFO("%s: props size: %u\n", __func__, n_chunks);
@@ -5163,6 +5194,14 @@ bool whisper_vad_detect_speech(
     ggml_backend_sched_reset(sched);
 
     return true;
+}
+
+bool whisper_vad_detect_speech(
+        struct whisper_vad_context * vctx,
+        const float * samples,
+        int n_samples) {
+    whisper_vad_reset_state(vctx);
+    return whisper_vad_detect_speech_no_reset(vctx, samples, n_samples);
 }
 
 int whisper_vad_segments_n_segments(struct whisper_vad_segments * segments) {
@@ -6207,6 +6246,13 @@ static void whisper_process_logits(
             }
         }
 
+        // ref: https://github.com/ggml-org/whisper.cpp/pull/3798
+        if (!params.no_timestamps && !params.single_segment && params.max_tokens > 0 && (int) tokens_cur.size() >= params.max_tokens) {
+            for (int i = 0; i < vocab.token_eot; ++i) {
+                logits[i] = -INFINITY;
+            }
+        }
+
         // suppress sot and nosp tokens
         logits[vocab.token_sot]  = -INFINITY;
         logits[vocab.token_nosp] = -INFINITY;
@@ -6701,12 +6747,13 @@ static bool whisper_vad(
             int segment_start_samples = cs_to_samples(vad_segments->data[i].start);
             int segment_end_samples   = cs_to_samples(vad_segments->data[i].end);
 
-            if (i < (int)vad_segments->data.size() - 1) {
-                segment_end_samples += overlap_samples;
-            }
-
             segment_start_samples = std::min(segment_start_samples, n_samples - 1);
             segment_end_samples = std::min(segment_end_samples, n_samples - 1);
+            int original_segment_length = segment_end_samples - segment_start_samples;
+
+            if (i < (int)vad_segments->data.size() - 1) {
+                segment_end_samples = std::min(segment_end_samples + overlap_samples, n_samples - 1);
+            }
             int segment_length = segment_end_samples - segment_start_samples;
             if (segment_length > 0) {
                 whisper_state::vad_segment_info segment;
@@ -6715,7 +6762,7 @@ static bool whisper_vad(
                 segment.orig_end   = vad_segments->data[i].end;
 
                 segment.vad_start = samples_to_cs(offset);
-                segment.vad_end   = samples_to_cs(offset + segment_length);
+                segment.vad_end   = samples_to_cs(offset + original_segment_length);
 
                 // Add segment boundaries to mapping table
                 vad_time_mapping start_mapping = {segment.vad_start, segment.orig_start};
@@ -6723,29 +6770,6 @@ static bool whisper_vad(
 
                 state->vad_mapping_table.push_back(start_mapping);
                 state->vad_mapping_table.push_back(end_mapping);
-
-                // Add intermediate points for longer segments to improve interpolation accuracy
-                const int64_t min_segment_length = 100; // 1 second
-                const int64_t point_interval = 20;     // Add a point every 200ms
-
-                if (segment.vad_end - segment.vad_start > min_segment_length) {
-                    int64_t segment_duration = segment.vad_end - segment.vad_start;
-                    int num_points = (int)(segment_duration / point_interval) - 1;
-
-                    for (int j = 1; j <= num_points; j++) {
-                        int64_t vad_time = segment.vad_start + j * point_interval;
-
-                        if (vad_time >= segment.vad_end) continue;
-
-                        int64_t vad_elapsed = vad_time - segment.vad_start;
-                        int64_t vad_total = segment.vad_end - segment.vad_start;
-                        int64_t orig_total = segment.orig_end - segment.orig_start;
-                        int64_t orig_time = segment.orig_start + (vad_elapsed * orig_total) / vad_total;
-
-                        vad_time_mapping intermediate_mapping = {vad_time, orig_time};
-                        state->vad_mapping_table.push_back(intermediate_mapping);
-                    }
-                }
 
                 WHISPER_LOG_INFO("%s: vad_segment_info: orig_start: %.2f, orig_end: %.2f, vad_start: %.2f, vad_end: %.2f\n",
                     __func__, segment.orig_start/100.0, segment.orig_end/100.0, segment.vad_start/100.0, segment.vad_end/100.0);
@@ -7672,11 +7696,14 @@ int whisper_full_with_state(
                             }
                         }
                         text = "";
-                        while (i < (int) tokens_cur.size() && tokens_cur[i].id > whisper_token_beg(ctx)) {
-                            i++;
-                        }
-                        i--;
                         t0 = t1;
+                        while (i + 1 < (int) tokens_cur.size() && tokens_cur[i + 1].id > whisper_token_beg(ctx)) {
+                            i++;
+                            if (params.print_special) {
+                                text += whisper_token_to_str(ctx, tokens_cur[i].id);
+                            }
+                            t0 = seek + 2 * (tokens_cur[i].tid - whisper_token_beg(ctx));
+                        }
                         i0 = i + 1;
                         speaker_turn_next = false;
                     }
@@ -7693,8 +7720,8 @@ int whisper_full_with_state(
                             printf("[%s --> %s]  %s\n", to_timestamp(tt0).c_str(), to_timestamp(tt1).c_str(), text.c_str());
                         } else {
                             printf("%s", text.c_str());
-                            fflush(stdout);
                         }
+                        fflush(stdout);
                     }
 
                     result_all.push_back({ tt0, tt1, text, state->no_speech_prob, {}, speaker_turn_next });
@@ -7735,7 +7762,12 @@ int whisper_full_with_state(
             }
 
             // ref: https://github.com/ggml-org/whisper.cpp/pull/2629
+            const bool max_tokens_timestamp_ending = params.max_tokens > 0 &&
+                !params.single_segment &&
+                tokens_cur.size() > (size_t) params.max_tokens;
+
             const bool single_timestamp_ending = tokens_cur.size() > 1 &&
+                !max_tokens_timestamp_ending &&
                 tokens_cur[tokens_cur.size() - 2].id < whisper_token_beg(ctx) &&
                 tokens_cur[tokens_cur.size() - 1].id > whisper_token_beg(ctx);
             if (single_timestamp_ending) {
@@ -8059,6 +8091,94 @@ struct whisper_token_data whisper_full_get_token_data(struct whisper_context * c
     return ctx->state->result_all[i_segment].tokens[i_token];
 }
 
+// map a token time (centiseconds) from the VAD-processed timeline back to the original
+// audio. a token inside a speech segment is interpolated within that segment; a token that
+// falls in the silence removed between two segments snaps to the nearer boundary, so it
+// never ends up in the middle of a cut-out gap (which a single global interpolation over
+// the whole mapping table would do).
+static int64_t whisper_map_token_time_segment_aware(
+        int64_t t,
+        const std::vector<whisper_state::vad_segment_info> & segs) {
+    if (segs.empty()) {
+        return t;
+    }
+    if (t <= segs.front().vad_start) {
+        return segs.front().orig_start;
+    }
+    if (t >= segs.back().vad_end) {
+        return segs.back().orig_end;
+    }
+    for (size_t i = 0; i < segs.size(); ++i) {
+        const auto & s = segs[i];
+        if (t >= s.vad_start && t <= s.vad_end) {
+            const int64_t vd = s.vad_end - s.vad_start;
+            const int64_t od = s.orig_end - s.orig_start;
+            if (vd <= 0) {
+                return s.orig_start;
+            }
+            return s.orig_start + (t - s.vad_start) * od / vd;
+        }
+        if (i + 1 < segs.size() && t > s.vad_end && t < segs[i + 1].vad_start) {
+            const int64_t mid = (s.vad_end + segs[i + 1].vad_start) / 2;
+            return (t <= mid) ? s.orig_end : segs[i + 1].orig_start;
+        }
+    }
+    return t;
+}
+
+int64_t whisper_full_get_token_t0_from_state(struct whisper_state * state, int i_segment, int i_token) {
+    const int64_t t0 = state->result_all[i_segment].tokens[i_token].t0;
+    if (!state->has_vad_segments || state->vad_segments.empty()) {
+        return t0;
+    }
+    return whisper_map_token_time_segment_aware(t0, state->vad_segments);
+}
+
+int64_t whisper_full_get_token_t0(struct whisper_context * ctx, int i_segment, int i_token) {
+    return whisper_full_get_token_t0_from_state(ctx->state, i_segment, i_token);
+}
+
+int64_t whisper_full_get_token_t1_from_state(struct whisper_state * state, int i_segment, int i_token) {
+    const int64_t t1 = state->result_all[i_segment].tokens[i_token].t1;
+    if (!state->has_vad_segments || state->vad_segments.empty()) {
+        return t1;
+    }
+    const int64_t orig_t0 = whisper_full_get_token_t0_from_state(state, i_segment, i_token);
+    int64_t orig_t1 = whisper_map_token_time_segment_aware(t1, state->vad_segments);
+    if (orig_t1 < orig_t0 + 1) {
+        orig_t1 = orig_t0 + 1; // keep a strictly positive duration after snapping
+    }
+    return orig_t1;
+}
+
+int64_t whisper_full_get_token_t1(struct whisper_context * ctx, int i_segment, int i_token) {
+    return whisper_full_get_token_t1_from_state(ctx->state, i_segment, i_token);
+}
+
+int whisper_full_n_vad_segments_from_state(struct whisper_state * state) {
+    return (int) state->vad_segments.size();
+}
+
+int whisper_full_n_vad_segments(struct whisper_context * ctx) {
+    return (int) ctx->state->vad_segments.size();
+}
+
+int64_t whisper_full_get_vad_segment_t0_from_state(struct whisper_state * state, int i) {
+    return state->vad_segments[i].orig_start;
+}
+
+int64_t whisper_full_get_vad_segment_t0(struct whisper_context * ctx, int i) {
+    return ctx->state->vad_segments[i].orig_start;
+}
+
+int64_t whisper_full_get_vad_segment_t1_from_state(struct whisper_state * state, int i) {
+    return state->vad_segments[i].orig_end;
+}
+
+int64_t whisper_full_get_vad_segment_t1(struct whisper_context * ctx, int i) {
+    return ctx->state->vad_segments[i].orig_end;
+}
+
 float whisper_full_get_token_p_from_state(struct whisper_state * state, int i_segment, int i_token) {
     return state->result_all[i_segment].tokens[i_token].p;
 }
@@ -8256,9 +8376,6 @@ WHISPER_API const char * whisper_bench_ggml_mul_mat_str(int n_threads) {
     // when F16 is used, there is an extra work buffer of size N*N*sizeof(float)
     std::vector<uint8_t> buf(3llu*N_max*N_max*sizeof(float) + 3*ggml_tensor_overhead() + ggml_graph_overhead());
 
-    // put a bunch of random data in the buffer
-    for (size_t i = 0; i < buf.size(); i++) buf[i] = i;
-
     for (int j = 0; j < (int) sizes.size(); j++) {
         int n_q4_0 = 0;
         int n_q4_1 = 0;
@@ -8301,6 +8418,15 @@ WHISPER_API const char * whisper_bench_ggml_mul_mat_str(int n_threads) {
 
             struct ggml_tensor * a = ggml_new_tensor_2d(ctx0, wtype,         N, N);
             struct ggml_tensor * b = ggml_new_tensor_2d(ctx0, GGML_TYPE_F32, N, N);
+
+            // set tensor data after allocation so previous iteration results don't corrupt it.
+            {
+                uint8_t * a_data = (uint8_t *) a->data;
+                for (size_t ii = 0; ii < ggml_nbytes(a); ii++) a_data[ii] = ii & 0x3F;
+
+                uint8_t * b_data = (uint8_t *) b->data;
+                for (size_t ii = 0; ii < ggml_nbytes(b); ii++) b_data[ii] = ii & 0x3F;
+            }
 
             struct ggml_tensor * c = ggml_mul_mat(ctx0, a, b);
 
@@ -8375,24 +8501,86 @@ static int64_t sample_to_timestamp(int i_sample) {
 
 // a cost-function / heuristic that is high for text that takes longer to pronounce
 // obviously, can be improved
+//
+// iterate over utf-8 code points rather than raw bytes: a CJK glyph is 3 bytes, so the
+// old per-byte loop counted every Han/kana/hangul character ~3x and never matched
+// full-width punctuation, skewing how a segment's time is shared between its tokens for
+// Chinese/Japanese. full-width punctuation gets the same weight as its ASCII form and
+// pure-ASCII text decodes to the same weights as before.
 static float voice_length(const std::string & text) {
     float res = 0.0f;
 
-    for (char c : text) {
-        if (c == ' ') {
-            res += 0.01f;
-        } else if (c == ',') {
-            res += 2.00f;
-        } else if (c == '.') {
-            res += 3.00f;
-        } else if (c == '!') {
-            res += 3.00f;
-        } else if (c == '?') {
-            res += 3.00f;
-        } else if (c >= '0' && c <= '9') {
-            res += 3.00f;
+    const unsigned char * s = (const unsigned char *) text.data();
+    const size_t n = text.size();
+
+    for (size_t i = 0; i < n; ) {
+        const unsigned char c = s[i];
+        uint32_t cp = c;
+        int len = 1;
+        if (c < 0x80) {
+            len = 1;
+        } else if ((c >> 5) == 0x6) {
+            cp = c & 0x1F;
+            len = 2;
+        } else if ((c >> 4) == 0xE) {
+            cp = c & 0x0F;
+            len = 3;
+        } else if ((c >> 3) == 0x1E) {
+            cp = c & 0x07;
+            len = 4;
         } else {
-            res += 1.00f;
+            cp = c; // stray continuation / invalid lead byte
+            len = 1;
+        }
+        if (i + (size_t) len <= n) {
+            bool ok = true;
+            for (int k = 1; k < len; ++k) {
+                const unsigned char cc = s[i + k];
+                if ((cc & 0xC0) != 0x80) {
+                    ok = false;
+                    break;
+                }
+                cp = (cp << 6) | (cc & 0x3F);
+            }
+            if (!ok) {
+                cp = c;
+                len = 1;
+            }
+        } else {
+            cp = c;
+            len = 1;
+        }
+        i += (size_t) len;
+
+        switch (cp) {
+            case ' ':
+            case 0x3000: // ideographic space
+                res += 0.01f;
+                break;
+            case ',':
+            case 0xFF0C: // ，
+            case 0x3001: // 、
+            case 0xFF1B: // ；
+            case 0xFF1A: // ：
+                res += 2.00f;
+                break;
+            case '.':
+            case '!':
+            case '?':
+            case 0x3002: // 。
+            case 0xFF0E: // ．
+            case 0xFF01: // ！
+            case 0xFF1F: // ？
+            case 0x2026: // …
+                res += 3.00f;
+                break;
+            default:
+                if ((cp >= '0' && cp <= '9') || (cp >= 0xFF10 && cp <= 0xFF19)) {
+                    res += 3.00f; // half/full-width digits
+                } else {
+                    res += 1.00f; // letters, CJK ideographs, kana, hangul, ...
+                }
+                break;
         }
     }
 

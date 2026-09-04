@@ -50,6 +50,10 @@ fi
 
 CMAKE_EXTRA="-DWHISPER_FATAL_WARNINGS=ON"
 
+if [[ "$(uname -m)" == "x86_64" ]]; then
+    CMAKE_EXTRA="${CMAKE_EXTRA} -DGGML_NATIVE=OFF"
+fi
+
 if [ ! -z ${GG_BUILD_METAL} ]; then
     CMAKE_EXTRA="${CMAKE_EXTRA} -DGGML_METAL=ON"
 fi
@@ -147,8 +151,15 @@ function gg_download_model {
         local cwd=`pwd`
         mkdir -p "$MNT/models"
         cd "$MNT/models"
+        set -x
         bash "$cwd/models/download-ggml-model.sh" ${model_name} .
+        local download_status=$?
+        set +x
         cd "$cwd"
+        if [ $download_status -ne 0 ]; then
+            echo "Error: failed to download model ${model_name}"
+            ret=1
+        fi
     fi
 }
 

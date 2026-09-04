@@ -1,5 +1,11 @@
 #include "ruby_whisper.h"
 
+#ifdef WORDS_BIGENDIAN
+  #define IS_BIGENDIAN true
+#else
+  #define IS_BIGENDIAN false
+#endif
+
 extern ID id_to_s;
 extern ID id___method__;
 extern ID id_to_enum;
@@ -22,7 +28,7 @@ extern const rb_data_type_t ruby_whisper_context_params_type;
 extern VALUE ruby_whisper_transcribe(int argc, VALUE *argv, VALUE self);
 extern VALUE rb_whisper_model_s_new(VALUE context);
 extern VALUE rb_whisper_segment_s_new(VALUE context, int index);
-extern void prepare_transcription(ruby_whisper_params *rwp, VALUE *context);
+extern void prepare_transcription(ruby_whisper_params *rwp, VALUE *context, int n_processors, ruby_whisper_abort_callback_user_data *abort_callback_user_data);
 
 ID transcribe_option_names[1];
 
@@ -32,20 +38,26 @@ typedef struct fill_samples_args {
   int n_samples;
 } fill_samples_args;
 
-typedef struct full_args {
-  VALUE *context;
-  VALUE *params;
+typedef struct full_without_gvl_args {
+  struct whisper_context *context;
+  struct whisper_full_params *params;
   float *samples;
   int n_samples;
-} full_args;
+  int result;
+} full_without_gvl_args;
 
-typedef struct full_parallel_args {
-  VALUE *context;
-  VALUE *params;
+typedef struct full_parallel_without_gvl_args {
+  struct whisper_context *context;
+  struct whisper_full_params *params;
   float *samples;
   int n_samples;
   int n_processors;
-} full_parallel_args;
+  int result;
+} full_parallel_without_gvl_args;
+
+typedef struct full_ubf_args {
+  ruby_whisper_abort_callback_user_data *abort_callback_user_data;
+} full_ubf_args;
 
 static void
 ruby_whisper_free(ruby_whisper *rw)
@@ -74,7 +86,7 @@ static size_t
 ruby_whisper_memsize(const void *p)
 {
   const ruby_whisper *rw = (const ruby_whisper *)p;
-  size_t size = sizeof(rw);
+  size_t size = sizeof(*rw);
   if (!rw) {
     return 0;
   }
@@ -304,11 +316,25 @@ VALUE ruby_whisper_model_type(VALUE self)
 static bool
 check_memory_view(rb_memory_view_t *memview)
 {
-  if (strcmp(memview->format, "f") != 0) {
-    rb_warn("currently only format \"f\" is supported for MemoryView, but given: %s", memview->format);
+  if (!memview->format) {
+    rb_warn("currently format is required");
     return false;
   }
-  if (memview->ndim != 1) {
+
+  if (strcmp(memview->format, "f") == 0) {
+    // accept
+  } else if (strcmp(memview->format, "e") == 0) {
+    if (IS_BIGENDIAN) {
+      rb_warn("currently format \"e\" is only supported on little-endian environment");
+      return false;
+    }
+  } else {
+    rb_warn("currently only format \"f\" and \"e\" on little-endian environment is supported for MemoryView, but given: %s", memview->format);
+    return false;
+  }
+
+  if (memview->ndim != 1 && !(memview->ndim == 2 && memview->shape[1] == 1)) {
+    // TODO: Accept ndim == 2 with shape [n_samples, channels] and channels > 1 by averaging the samples in different channels or just taking the first channel
     rb_warn("currently only 1 dimensional MemoryView is supported, but given: %zd", memview->ndim);
     return false;
   }
@@ -323,7 +349,11 @@ fill_samples(VALUE rb_args)
 
   if (RB_TYPE_P(*args->src, T_ARRAY)) {
     for (int i = 0; i < args->n_samples; i++) {
-      args->dest[i] = RFLOAT_VALUE(rb_ary_entry(*args->src, i));
+      VALUE sample = rb_ary_entry(*args->src, i);
+      if (!RB_FLOAT_TYPE_P(sample)) {
+        sample = rb_to_float(sample);
+      }
+      args->dest[i] = RFLOAT_VALUE(sample);
     }
   } else {
     // TODO: use rb_block_call
@@ -331,6 +361,9 @@ fill_samples(VALUE rb_args)
     for (int i = 0; i < args->n_samples; i++) {
       // TODO: check if iter is exhausted and raise ArgumentError appropriately
       VALUE sample = rb_funcall(iter, id_next, 0);
+      if (!RB_FLOAT_TYPE_P(sample)) {
+        sample = rb_to_float(sample);
+      }
       args->dest[i] = RFLOAT_VALUE(sample);
     }
   }
@@ -338,7 +371,7 @@ fill_samples(VALUE rb_args)
   return Qnil;
 }
 
-struct parsed_samples_t
+parsed_samples_t
 parse_samples(VALUE *samples, VALUE *n_samples)
 {
   bool memview_available = rb_memory_view_available_p(*samples);
@@ -377,7 +410,7 @@ parse_samples(VALUE *samples, VALUE *n_samples)
         }
         parsed.n_samples = (int)n_samples_size;
       } else {
-        rb_warn("unable to get a memory view. fallbacks to Ruby object");
+        rb_warn("unable to get a memory view. falls back to Ruby object");
         if (rb_respond_to(*samples, id_length)) {
           parsed.n_samples = NUM2INT(rb_funcall(*samples, id_length, 0));
         } else {
@@ -426,20 +459,50 @@ release_samples(VALUE rb_parsed_args)
   return Qnil;
 }
 
-static VALUE
+static void*
+full_without_gvl(void *rb_args)
+{
+  full_without_gvl_args *args = (full_without_gvl_args *)rb_args;
+  args->result = whisper_full(args->context, *args->params, args->samples, args->n_samples);
+  return NULL;
+}
+
+static void
+full_ubf(void *rb_args)
+{
+  full_ubf_args *args = (full_ubf_args *)rb_args;
+
+  RUBY_ATOMIC_SET(args->abort_callback_user_data->is_interrupted, 1);
+}
+
+VALUE
 full_body(VALUE rb_args)
 {
-  full_args *args = (full_args *)rb_args;
+  ruby_whisper_full_args *args = (ruby_whisper_full_args *)rb_args;
 
   ruby_whisper *rw;
   ruby_whisper_params *rwp;
   GetContext(*args->context, rw);
   TypedData_Get_Struct(*args->params, ruby_whisper_params, &ruby_whisper_params_type, rwp);
 
-  prepare_transcription(rwp, args->context);
-  int result = whisper_full(rw->context, rwp->params, args->samples, args->n_samples);
+  ruby_whisper_abort_callback_user_data abort_callback_user_data = {
+    0,
+    NULL,
+  };
+  prepare_transcription(rwp, args->context, 1, &abort_callback_user_data);
 
-  return INT2NUM(result);
+  struct full_without_gvl_args full_without_gvl_args = {
+    rw->context,
+    &rwp->params,
+    args->samples,
+    args->n_samples,
+    0,
+  };
+  full_ubf_args full_ubf_args = {
+    &abort_callback_user_data,
+  };
+  rb_thread_call_without_gvl(full_without_gvl, (void *)&full_without_gvl_args, full_ubf, (void *)&full_ubf_args);
+  return INT2NUM(full_without_gvl_args.result);
 }
 
 /*
@@ -462,7 +525,7 @@ VALUE ruby_whisper_full(int argc, VALUE *argv, VALUE self)
   VALUE n_samples = argc == 2 ? Qnil : argv[2];
 
   struct parsed_samples_t parsed = parse_samples(&argv[1], &n_samples);
-  full_args args = {
+  ruby_whisper_full_args args = {
     &self,
     &argv[0],
     parsed.samples,
@@ -477,20 +540,43 @@ VALUE ruby_whisper_full(int argc, VALUE *argv, VALUE self)
   }
 }
 
-static VALUE
+static void*
+full_parallel_without_gvl(void *rb_args)
+{
+  full_parallel_without_gvl_args *args = (full_parallel_without_gvl_args *)rb_args;
+  args->result = whisper_full_parallel(args->context, *args->params, args->samples, args->n_samples, args->n_processors);
+  return NULL;
+}
+
+VALUE
 full_parallel_body(VALUE rb_args)
 {
-  full_parallel_args *args = (full_parallel_args *)rb_args;
+  ruby_whisper_full_parallel_args *args = (ruby_whisper_full_parallel_args *)rb_args;
 
   ruby_whisper *rw;
   ruby_whisper_params *rwp;
   GetContext(*args->context, rw);
   TypedData_Get_Struct(*args->params, ruby_whisper_params, &ruby_whisper_params_type, rwp);
 
-  prepare_transcription(rwp, args->context);
-  int result = whisper_full_parallel(rw->context, rwp->params, args->samples, args->n_samples, args->n_processors);
+  ruby_whisper_abort_callback_user_data abort_callback_user_data = {
+    0,
+    NULL,
+  };
+  prepare_transcription(rwp, args->context, args->n_processors, &abort_callback_user_data);
 
-  return INT2NUM(result);
+  struct full_parallel_without_gvl_args full_parallel_without_gvl_args = {
+    rw->context,
+    &rwp->params,
+    args->samples,
+    args->n_samples,
+    args->n_processors,
+    0,
+  };
+  full_ubf_args full_ubf_args = {
+    &abort_callback_user_data,
+  };
+  rb_thread_call_without_gvl(full_parallel_without_gvl, (void *)&full_parallel_without_gvl_args, full_ubf, (void *)&full_ubf_args);
+  return INT2NUM(full_parallel_without_gvl_args.result);
 }
 
 /*
@@ -527,7 +613,7 @@ ruby_whisper_full_parallel(int argc, VALUE *argv,VALUE self)
     break;
   }
   struct parsed_samples_t parsed = parse_samples(&argv[1], &n_samples);
-  const full_parallel_args args = {
+  const ruby_whisper_full_parallel_args args = {
     &self,
     &argv[0],
     parsed.samples,
@@ -666,6 +752,45 @@ ruby_whisper_full_get_segment_no_speech_prob(VALUE self, VALUE i_segment)
   return DBL2NUM(no_speech_prob);
 }
 
+static VALUE
+ruby_whisper_full_n_vad_segments(VALUE self)
+{
+  ruby_whisper *rw;
+  GetContext(self, rw);
+
+  return INT2NUM(whisper_full_n_vad_segments(rw->context));
+}
+
+static int
+ruby_whisper_full_check_vad_segment_index(const ruby_whisper *rw, const VALUE i_segment)
+{
+    const int c_i_segment = NUM2INT(i_segment);
+    if (c_i_segment < 0 || c_i_segment >= whisper_full_n_vad_segments(rw->context)) {
+      rb_raise(rb_eIndexError, "segment index %d out of range", c_i_segment);
+    }
+    return c_i_segment;
+}
+
+static VALUE
+ruby_whisper_full_get_vad_segment_t0(VALUE self, VALUE i_segment)
+{
+  ruby_whisper *rw;
+  GetContext(self, rw);
+  const int c_i_segment = ruby_whisper_full_check_vad_segment_index(rw, i_segment);
+
+  return LONG2NUM(whisper_full_get_vad_segment_t0(rw->context, c_i_segment));
+}
+
+static VALUE
+ruby_whisper_full_get_vad_segment_t1(VALUE self, VALUE i_segment)
+{
+  ruby_whisper *rw;
+  GetContext(self, rw);
+  const int c_i_segment = ruby_whisper_full_check_vad_segment_index(rw, i_segment);
+
+  return LONG2NUM(whisper_full_get_vad_segment_t1(rw->context, c_i_segment));
+}
+
 // High level API
 
 static VALUE
@@ -751,6 +876,9 @@ init_ruby_whisper_context(VALUE *mWhisper)
   rb_define_method(cContext, "full_get_segment_speaker_turn_next", ruby_whisper_full_get_segment_speaker_turn_next, 1);
   rb_define_method(cContext, "full_get_segment_text", ruby_whisper_full_get_segment_text, 1);
   rb_define_method(cContext, "full_get_segment_no_speech_prob", ruby_whisper_full_get_segment_no_speech_prob, 1);
+  rb_define_method(cContext, "full_n_vad_segments", ruby_whisper_full_n_vad_segments, 0);
+  rb_define_method(cContext, "full_get_vad_segment_t0", ruby_whisper_full_get_vad_segment_t0, 1);
+  rb_define_method(cContext, "full_get_vad_segment_t1", ruby_whisper_full_get_vad_segment_t1, 1);
   rb_define_method(cContext, "full", ruby_whisper_full, -1);
   rb_define_method(cContext, "full_parallel", ruby_whisper_full_parallel, -1);
 

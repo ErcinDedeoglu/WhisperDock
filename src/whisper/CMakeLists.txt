@@ -1,9 +1,26 @@
 cmake_minimum_required(VERSION 3.5) # for add_link_options and implicit target directories.
 project("whisper.cpp" C CXX)
-project("whisper.cpp" VERSION 1.8.3)
 include(CheckIncludeFileCXX)
 
-set(SOVERSION 1)
+### whisper.cpp version
+set(WHISPER_VERSION_MAJOR 1)
+set(WHISPER_VERSION_MINOR 9)
+set(WHISPER_VERSION_PATCH 3)
+set(WHISPER_VERSION_BASE "${WHISPER_VERSION_MAJOR}.${WHISPER_VERSION_MINOR}.${WHISPER_VERSION_PATCH}")
+
+# whether this is a development/nightly build
+# set this to OFF when making a release from a release tag (vX.Y.Z)
+# ref: https://github.com/ggml-org/ggml/discussions/1579
+option(WHISPER_BUILD_IS_DEV "whisper: dev build" ON)
+
+if (WHISPER_BUILD_IS_DEV)
+    set(WHISPER_VERSION "${WHISPER_VERSION_BASE}-dev")
+else()
+    # TODO: check that the current commit is tagged correctly according to the version specified above
+    set(WHISPER_VERSION "${WHISPER_VERSION_BASE}")
+endif()
+
+message(STATUS "whisper.cpp version: ${WHISPER_VERSION}")
 
 #set(CMAKE_WARN_DEPRECATED YES)
 set(CMAKE_WARN_UNUSED_CLI YES)
@@ -19,6 +36,7 @@ endif()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     set(WHISPER_STANDALONE ON)
@@ -67,8 +85,14 @@ option(WHISPER_ALL_WARNINGS           "whisper: enable all compiler warnings"   
 option(WHISPER_ALL_WARNINGS_3RD_PARTY "whisper: enable all compiler warnings in 3rd party libs" OFF)
 
 # build
-option(WHISPER_FATAL_WARNINGS  "whisper: enable -Werror flag"               OFF)
-option(WHISPER_USE_SYSTEM_GGML "whisper: use system-installed GGML library" OFF)
+option(WHISPER_FATAL_WARNINGS   "whisper: enable -Werror flag"                    OFF)
+option(WHISPER_USE_SYSTEM_GGML  "whisper: use system-installed GGML library"      OFF)
+option(WHISPER_USE_SYSTEM_LLAMA "whisper: use system-installed llama.cpp library" OFF)
+
+if (WHISPER_USE_SYSTEM_LLAMA AND NOT WHISPER_USE_SYSTEM_GGML)
+    message(STATUS "WHISPER_USE_SYSTEM_LLAMA=ON: setting WHISPER_USE_SYSTEM_GGML=ON")
+    set(WHISPER_USE_SYSTEM_GGML ON CACHE BOOL "" FORCE)
+endif()
 
 # sanitizers
 option(WHISPER_SANITIZE_THREAD    "whisper: enable thread sanitizer"    OFF)
@@ -85,7 +109,7 @@ option(WHISPER_CURL "whisper: use libcurl to download model from an URL" OFF)
 option(WHISPER_SDL2 "whisper: support for libSDL2" OFF)
 
 if (CMAKE_SYSTEM_NAME MATCHES "Linux")
-    option(WHISPER_FFMPEG "whisper: support building and linking with ffmpeg libs (avcodec, swresample, ...)" OFF)
+    option(WHISPER_COMMON_FFMPEG "whisper: examples link with ffmpeg libs in order to decode more audio formats" OFF)
 endif()
 
 option(WHISPER_COREML                "whisper: enable Core ML framework"  OFF)
@@ -121,6 +145,7 @@ whisper_option_depr(WARNING     WHISPER_RPC                 GGML_RPC)
 whisper_option_depr(WARNING     WHISPER_SYCL                GGML_SYCL)
 whisper_option_depr(WARNING     WHISPER_SYCL_F16            GGML_SYCL_F16)
 whisper_option_depr(WARNING     WHISPER_CCACHE              GGML_CCACHE)
+whisper_option_depr(WARNING     WHISPER_FFMPEG              WHISPER_COMMON_FFMPEG)
 
 if (GGML_CUDA AND NOT MSVC)
     #GGML_CUDA enabled, add the necessary compile options -Wno-deprecated-gpu-targets
@@ -168,9 +193,12 @@ add_subdirectory(src)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
-set(WHISPER_BUILD_NUMBER        ${BUILD_NUMBER})
-set(WHISPER_BUILD_COMMIT        ${BUILD_COMMIT})
-set(WHISPER_INSTALL_VERSION     ${CMAKE_PROJECT_VERSION})
+if (NOT DEFINED WHISPER_BUILD_NUMBER)
+    set(WHISPER_BUILD_NUMBER        ${BUILD_NUMBER})
+endif()
+if (NOT DEFINED WHISPER_BUILD_COMMIT)
+    set(WHISPER_BUILD_COMMIT        ${BUILD_COMMIT})
+endif()
 
 set(WHISPER_INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_INCLUDEDIR} CACHE PATH "Location of header  files")
 set(WHISPER_LIB_INSTALL_DIR     ${CMAKE_INSTALL_LIBDIR}     CACHE PATH "Location of library files")
@@ -179,10 +207,18 @@ set(WHISPER_BIN_INSTALL_DIR     ${CMAKE_INSTALL_BINDIR}     CACHE PATH "Location
 get_directory_property(WHISPER_TRANSIENT_DEFINES COMPILE_DEFINITIONS)
 
 set_target_properties(whisper PROPERTIES PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/include/whisper.h)
+
 install(TARGETS whisper LIBRARY PUBLIC_HEADER)
 
 target_compile_definitions(whisper PRIVATE
-    WHISPER_VERSION="${PROJECT_VERSION}"
+    WHISPER_VERSION="${WHISPER_VERSION}"
+)
+
+set_target_properties(parakeet PROPERTIES PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/include/parakeet.h)
+install(TARGETS parakeet LIBRARY PUBLIC_HEADER)
+
+target_compile_definitions(parakeet PRIVATE
+    PARAKEET_VERSION="${WHISPER_VERSION}"
 )
 
 configure_package_config_file(
@@ -195,12 +231,12 @@ configure_package_config_file(
     WHISPER_BIN_INSTALL_DIR )
 
 write_basic_package_version_file(
-    ${CMAKE_CURRENT_BINARY_DIR}/whisper-version.cmake
-    VERSION ${WHISPER_INSTALL_VERSION}
+    ${CMAKE_CURRENT_BINARY_DIR}/whisper-config-version.cmake
+    VERSION ${WHISPER_VERSION}
     COMPATIBILITY SameMajorVersion)
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/whisper-config.cmake
-              ${CMAKE_CURRENT_BINARY_DIR}/whisper-version.cmake
+              ${CMAKE_CURRENT_BINARY_DIR}/whisper-config-version.cmake
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/whisper)
 
 configure_file(cmake/whisper.pc.in
@@ -208,7 +244,36 @@ configure_file(cmake/whisper.pc.in
         @ONLY)
 
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/whisper.pc"
-        DESTINATION lib/pkgconfig)
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+
+set(PARAKEET_INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_INCLUDEDIR} CACHE PATH "Location of header  files")
+set(PARAKEET_LIB_INSTALL_DIR     ${CMAKE_INSTALL_LIBDIR}     CACHE PATH "Location of library files")
+set(PARAKEET_BIN_INSTALL_DIR     ${CMAKE_INSTALL_BINDIR}     CACHE PATH "Location of binary  files")
+
+configure_package_config_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/cmake/parakeet-config.cmake.in
+        ${CMAKE_CURRENT_BINARY_DIR}/parakeet-config.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/parakeet
+    PATH_VARS
+    PARAKEET_INCLUDE_INSTALL_DIR
+    PARAKEET_LIB_INSTALL_DIR
+    PARAKEET_BIN_INSTALL_DIR)
+
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/parakeet-config-version.cmake
+    VERSION ${WHISPER_VERSION}
+    COMPATIBILITY SameMajorVersion)
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/parakeet-config.cmake
+              ${CMAKE_CURRENT_BINARY_DIR}/parakeet-config-version.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/parakeet)
+
+configure_file(cmake/parakeet.pc.in
+        "${CMAKE_CURRENT_BINARY_DIR}/parakeet.pc"
+        @ONLY)
+
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/parakeet.pc"
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
 
 #
 # programs, examples and tests
