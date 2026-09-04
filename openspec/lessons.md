@@ -47,3 +47,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** flask-default-unbounded-upload-html-413
 - **Next experiment:** Restrict `.github/workflows/publish-docker.yml` so non-release pushes do not publish `dublok/whisperdock`. Until then, do not push.
+
+## 2026-09-04 — restrict-docker-publish-to-main
+
+- **Date:** 2026-09-04
+- **Change:** restrict-docker-publish-to-main
+- **Finding:** `publish-docker.yml` used `on.push.branches: '**'` and `push: true`, so any git push published `dublok/whisperdock`.
+- **Hypothesis:** `on.push.branches: [main]` plus keep `workflow_dispatch` → YAML has no `'**'`; feature-branch pushes do not start the Hub job; `sync-whisper.yml` dispatch remains.
+- **Action:** One-line trigger change. No job-level `if: main` (would block tag-branch dispatch). Synced `docker-image-publish`; archived.
+- **Evidence:** Parse `branches==['main']`; unittest 6/6 holdout; `gh workflow run publish-docker.yml` still in sync-whisper; `openspec validate --specs --strict` 3/3. Chrome N/A. Commits 139c03b / 62820c8 / cc70661 not yet pushed.
+- **Outcome:** Hypothesis confirmed locally. Archived `openspec/changes/archive/2026-09-04-restrict-docker-publish-to-main`. Origin push is now allowed on `main` (will publish once, as intended).
+- **Failure mode:** none. Remote GHA not observed until first `main` push.
+- **Confidence:** high local YAML; remote unproven.
+- **Applicability:** GitHub Actions deploy workflows that use `'**'` with `push: true` to a production registry.
+- **Superseded lesson:** standing “never push” constraint from `'**'` publish.
+- **Pattern-Key:** gha-globstar-push-publishes-production-registry
+- **Next experiment:** Discover next finding (gunicorn request size vs Flask 16 MB, or pin Flask/gunicorn, or first `main` push + CI evidence).
