@@ -33,11 +33,10 @@ RUN bash ./models/download-ggml-model.sh base.en
 RUN make CMAKE_ARGS="-DGGML_NATIVE=OFF"
 RUN test -x /app/whisper/build/bin/whisper-cli
 
-# Copy the Flask app to the container (assuming it's in the src directory)
-COPY app.py /app/
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir --no-deps -r /app/requirements.txt
 
-# Install Flask and Gunicorn for the Python app
-RUN pip install Flask==3.1.3 gunicorn==26.2.0
+COPY app.py /app/
 
 # Expose the port the app runs on
 EXPOSE 5000
