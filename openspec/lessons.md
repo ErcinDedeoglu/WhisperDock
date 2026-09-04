@@ -143,3 +143,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** unused-stdlib-import-no-behavior
 - **Next experiment:** hashed pip lockfile (transitive pins) or README leftover template prose.
+
+## 2026-09-04 — remove-readme-template-prose
+
+- **Date:** 2026-09-04
+- **Change:** remove-readme-template-prose
+- **Finding:** README still told readers to “Adjust the example response…” after JSON examples that already match `test_parse_transcription_readme_segments`.
+- **Hypothesis:** Delete that paragraph → phrase gone; examples remain; unittest 6/6.
+- **Action:** Docs delete. `skip_specs`. Design skipped.
+- **Evidence:** README grep miss on Adjust; examples still present; unittest 6/6; GHA 33849637846 success.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-remove-readme-template-prose`.
+- **Failure mode:** none.
+- **Confidence:** high.
+- **Applicability:** READMEs that leave scaffold “adjust this example” notes in published docs.
+- **Superseded lesson:** none
+- **Pattern-Key:** leftover-readme-author-notes-after-examples
+- **Next experiment:** hashed pip lockfile (transitive pins).
