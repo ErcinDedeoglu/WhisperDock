@@ -175,3 +175,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** pip-direct-pins-leave-transitives-floating
 - **Next experiment:** hash-checking with multi-arch `--hash` lines, or gunicorn request-size vs Flask 16 MB.
+
+## 2026-09-04 — add-pip-require-hashes
+
+- **Date:** 2026-09-04
+- **Change:** add-pip-require-hashes
+- **Finding:** Frozen `requirements.txt` had no hashes; pip trusted PyPI bytes.
+- **Hypothesis:** `--hash` for py3-none-any plus MarkupSafe linux cp312 amd64/arm64, with `--require-hashes --only-binary :all: --no-deps` → local and GHA installs succeed; versions unchanged.
+- **Action:** Hashes from PyPI JSON; Dockerfile flags. Rejected hashing all 89 MarkupSafe wheels.
+- **Evidence:** Local rebuild hash-ok. Hub `6526193` 3.1.3/26.2.0/3.0.3. GHA 33851184564 success. Unittest 6/6.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-add-pip-require-hashes`.
+- **Failure mode:** none this slice.
+- **Confidence:** high.
+- **Applicability:** Frozen pip files without `--hash` when deploying on more than one linux arch.
+- **Superseded lesson:** none
+- **Pattern-Key:** pip-freeze-without-hashes-trusts-pypi-bytes
+- **Next experiment:** gunicorn request-size vs Flask 16 MB (needs evidence), or non-root USER in Dockerfile.
