@@ -7,6 +7,15 @@ import re
 
 app = Flask(__name__)
 
+def _unlink_quietly(path):
+    if not path:
+        return
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+
+
 @app.route('/transcribe', methods=['POST'])
 def transcribe_audio():
     if 'file' not in request.files:
@@ -15,46 +24,54 @@ def transcribe_audio():
     if file.filename == '':
         return jsonify(error="No selected file"), 400
 
-    # Save the uploaded file to a temporary file
-    temp = tempfile.NamedTemporaryFile(delete=False)
-    file.save(temp.name)
-    temp.close()
+    temp_path = None
+    converted_path = None
+    try:
+        temp = tempfile.NamedTemporaryFile(delete=False)
+        file.save(temp.name)
+        temp.close()
+        temp_path = temp.name
 
-    # Convert the uploaded media to 16kHz mono audio WAV file using ffmpeg
-    converted_temp = tempfile.NamedTemporaryFile(delete=False, suffix='.wav')
-    subprocess.run([
-        "ffmpeg", "-y", "-i", temp.name,
-        "-ar", "16000",
-        "-ac", "1",
-        "-vn",
-        converted_temp.name
-    ], check=True)
-    os.remove(temp.name)  # Remove the original file as it's no longer needed
+        converted_temp = tempfile.NamedTemporaryFile(delete=False, suffix='.wav')
+        converted_temp.close()
+        converted_path = converted_temp.name
 
-    # whisper.cpp now ships whisper-cli under build/bin; `main` is only a deprecation stub.
-    result = subprocess.run([
-        "/app/whisper/build/bin/whisper-cli",
-        "-f", converted_temp.name,
-        "--model", "/app/whisper/models/ggml-base.en.bin",
-        "--no-gpu",
-        "--no-prints",
-    ], capture_output=True, text=True)
+        try:
+            subprocess.run([
+                "ffmpeg", "-y", "-i", temp_path,
+                "-ar", "16000",
+                "-ac", "1",
+                "-vn",
+                converted_path
+            ], check=True)
+        except FileNotFoundError:
+            app.logger.error("ffmpeg executable was not found")
+            return jsonify(error="Error in transcription"), 500
+        except subprocess.CalledProcessError as exc:
+            app.logger.error("ffmpeg failed with return code %s", exc.returncode)
+            return jsonify(error="Error in transcription"), 400
 
-    # Log the return code and stderr
-    app.logger.info(f"Return code: {result.returncode}")
-    if result.returncode != 0:
-        app.logger.error(f"Error output: {result.stderr}")
+        try:
+            result = subprocess.run([
+                "/app/whisper/build/bin/whisper-cli",
+                "-f", converted_path,
+                "--model", "/app/whisper/models/ggml-base.en.bin",
+                "--no-gpu",
+                "--no-prints",
+            ], capture_output=True, text=True)
+        except FileNotFoundError:
+            app.logger.error("whisper-cli executable was not found")
+            return jsonify(error="Error in transcription"), 500
 
-    transcription = result.stdout if result.returncode == 0 else "Error in transcription"
+        app.logger.info(f"Return code: {result.returncode}")
+        if result.returncode != 0:
+            app.logger.error(f"Error output: {result.stderr}")
+            return jsonify(error="Error in transcription"), 500
 
-    # Remove the temporary converted file
-    os.remove(converted_temp.name)
-
-    if result.returncode == 0:
-        transcription = parse_transcription(result.stdout)
-        return jsonify(transcription=transcription)
-    else:
-        return jsonify(error="Error in transcription"), 500
+        return jsonify(transcription=parse_transcription(result.stdout))
+    finally:
+        _unlink_quietly(temp_path)
+        _unlink_quietly(converted_path)
 
 def parse_transcription(transcription):
     pattern = re.compile(r'\[(\d{2}:\d{2}:\d{2}\.\d{3}) --> (\d{2}:\d{2}:\d{2}\.\d{3})\](.*?)\n', re.DOTALL)
