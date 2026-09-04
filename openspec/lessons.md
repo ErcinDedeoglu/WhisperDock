@@ -303,3 +303,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** readme-client-format-vs-server-ffmpeg-convert
 - **Next experiment:** document GET `/health` in README, or apt `--no-install-recommends`.
+
+## 2026-09-04 — document-health-endpoint
+
+- **Date:** 2026-09-04
+- **Change:** document-health-endpoint
+- **Finding:** GET `/health` existed; README API Usage omitted it.
+- **Hypothesis:** document curl + `{"status":"ok"}` → README has `/health`; unittest 0; no Docker Images run.
+- **Action:** README snippet after the 16 MB sentence; skip_specs.
+- **Evidence:** unittest 8/8. `b4f1788` had no Docker Images run.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-document-health-endpoint`.
+- **Failure mode:** none.
+- **Confidence:** high for docs.
+- **Applicability:** APIs that add liveness routes without updating the README.
+- **Superseded lesson:** none
+- **Pattern-Key:** health-route-undocumented-in-readme
+- **Next experiment:** apt `--no-install-recommends` (combine with apt-lists cleanup in one RUN).

@@ -8,4 +8,6 @@
 
 ## Remote
 
-README is outside `src/**`; Docker Images should not run.
+- Push: `main` `b4f1788` → `origin/main`
+- CI/CD: no `🐳 Docker Images` run for this SHA (path filter)
+- Environment: n/a — docs-only
