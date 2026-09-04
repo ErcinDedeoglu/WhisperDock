@@ -543,3 +543,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** checkout-persist-credentials-false-when-no-git-push
 - **Next experiment:** drop unused `docker/setup-qemu-action` from amd64-only publish.
+
+## 2026-09-04 — drop-unused-qemu-from-publish
+
+- **Date:** 2026-09-04
+- **Change:** drop-unused-qemu-from-publish
+- **Finding:** Publish installed QEMU then built only `linux/amd64` on amd64 `ubuntu-latest`.
+- **Hypothesis:** Remove QEMU step → Docker Images still succeeds; Buildx stays.
+- **Action:** Delete Setup QEMU step. Update Node 24 pin spec (no QEMU comment). Synced `docker-image-publish`.
+- **Evidence:** yaml-ok no setup-qemu-action. Unittest 8/8. GHA 33863003249 success (2m38s, no QEMU step). Hub `40de323` cli-ok.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-drop-unused-qemu-from-publish`.
+- **Failure mode:** arm64 platform later would need QEMU restored.
+- **Confidence:** high.
+- **Applicability:** native-arch GHA docker jobs that copy the multi-arch QEMU+buildx template.
+- **Superseded lesson:** none
+- **Pattern-Key:** qemu-only-for-non-native-platforms
+- **Next experiment:** `timeout-minutes` on the publish job so a hung build cannot consume the default 360m runner budget.
