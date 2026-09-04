@@ -70,7 +70,7 @@ To transcribe audio, make a POST request to the `/transcribe` endpoint with the 
 curl -X POST -F 'file=@/path/to/your/audio.wav' http://localhost:5000/transcribe
 ```
 
-Ensure your audio file is in WAV format with a sample rate of 16kHz.
+The service converts ffmpeg-readable audio to 16 kHz mono WAV before transcription. Uploads larger than 16 MB are rejected.
 
 ### Example Response
 
