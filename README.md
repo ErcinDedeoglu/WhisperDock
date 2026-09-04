@@ -103,10 +103,6 @@ If there is an error in transcription, the service might return an error respons
 
 Make sure to handle both success and error responses appropriately in your application.
 
---- 
-
-Adjust the example response to match the actual output format of your transcription service. The error message should also reflect what your service would actually return in case of a failure.
-
 ## Development
 
 ### Prerequisites
