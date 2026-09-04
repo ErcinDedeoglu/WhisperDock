@@ -239,3 +239,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** gha-path-filter-skip-docs-only-image-publish
 - **Next experiment:** gunicorn `-w 4` memory vs whisper workers (needs RSS evidence).
+
+## 2026-09-04 — set-runtime-workdir-to-app
+
+- **Date:** 2026-09-04
+- **Change:** set-runtime-workdir-to-app
+- **Finding:** Last WORKDIR was `/app/whisper`; inspect WorkingDir=/app/whisper. gunicorn `-w 4` idle 96 MiB / 4 concurrent 103 MiB (non-finding).
+- **Hypothesis:** `WORKDIR /app` after COPY app.py → inspect WorkingDir=/app; unittest still 0.
+- **Action:** one WORKDIR /app. Kept gunicorn `--chdir /app`.
+- **Evidence:** Local and Hub `f68a186` WorkingDir=/app. Unittest 7/7. GHA 33854493819 success.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-set-runtime-workdir-to-app`.
+- **Failure mode:** none.
+- **Confidence:** high for cwd; `--chdir` still redundant.
+- **Applicability:** Dockerfiles that WORKDIR into a build subtree and never restore the app root.
+- **Superseded lesson:** none
+- **Pattern-Key:** dockerfile-last-workdir-is-runtime-cwd
+- **Next experiment:** subprocess timeout vs gunicorn 300s, or ffmpeg `-nostdin`.
