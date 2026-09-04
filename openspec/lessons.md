@@ -95,3 +95,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** unpinned-pip-install-floats-rebuilds
 - **Next experiment:** Unused `import socket` (polish) or GHA Node 20 deprecation on Docker Actions (reliability) or hashed pip lockfile (transitive pins).
+
+## 2026-09-04 — upgrade-gha-actions-to-node24
+
+- **Date:** 2026-09-04
+- **Change:** upgrade-gha-actions-to-node24
+- **Finding:** GHA run 33847304880 annotated Node 20 actions: checkout@v4, qemu@v3, buildx@v3, login@v3, build-push@v5.0.0. Node 20 removed 2026-09-23.
+- **Hypothesis:** Bump to checkout@v7, qemu/buildx/login@v4, build-push@v7 → next publish-docker succeeds and annotation does not name those five.
+- **Action:** Two workflow files. Rejected FORCE_JAVASCRIPT_ACTIONS_TO_NODE24. Synced `docker-image-publish`; archived.
+- **Evidence:** Unittest 6/6. GHA 33847832202 success 2m57s. Node 20 annotation gone. New warning: Dockerfile LegacyKeyValueFormat ENV lines 5–6.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-upgrade-gha-actions-to-node24`.
+- **Failure mode:** none. build-push v5→v7 did not break existing `with:` keys.
+- **Confidence:** high for those five actions; Dockerfile ENV warning is a new finding.
+- **Applicability:** Workflows still on checkout@v4 / docker actions @v3/@v5 after the Node 20 runner deprecation.
+- **Superseded lesson:** none
+- **Pattern-Key:** gha-node20-action-majors-emit-deprecation
+- **Next experiment:** Dockerfile `ENV KEY value` → `ENV KEY=value` (LegacyKeyValueFormat) or unused `import socket`.
