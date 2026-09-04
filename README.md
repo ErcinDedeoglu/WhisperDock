@@ -52,7 +52,7 @@ git clone https://github.com/ErcinDedeoglu/WhisperDock
 
 2. Build the Docker image:
 ```bash
-docker build -t whisperdock .
+docker build -t whisperdock src
 ```
 
 3. Run the container:
