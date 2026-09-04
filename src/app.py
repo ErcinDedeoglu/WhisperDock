@@ -31,8 +31,14 @@ def transcribe_audio():
     ], check=True)
     os.remove(temp.name)  # Remove the original file as it's no longer needed
 
-    # Call the main executable
-    result = subprocess.run(["/app/whisper/main", "-f", converted_temp.name, "--model", "/app/whisper/models/ggml-base.en.bin"], capture_output=True, text=True)
+    # whisper.cpp now ships whisper-cli under build/bin; `main` is only a deprecation stub.
+    result = subprocess.run([
+        "/app/whisper/build/bin/whisper-cli",
+        "-f", converted_temp.name,
+        "--model", "/app/whisper/models/ggml-base.en.bin",
+        "--no-gpu",
+        "--no-prints",
+    ], capture_output=True, text=True)
 
     # Log the return code and stderr
     app.logger.info(f"Return code: {result.returncode}")
@@ -48,7 +54,7 @@ def transcribe_audio():
         transcription = parse_transcription(result.stdout)
         return jsonify(transcription=transcription)
     else:
-        return jsonify(error="Error in transcription"), 50
+        return jsonify(error="Error in transcription"), 500
 
 def parse_transcription(transcription):
     pattern = re.compile(r'\[(\d{2}:\d{2}:\d{2}\.\d{3}) --> (\d{2}:\d{2}:\d{2}\.\d{3})\](.*?)\n', re.DOTALL)
