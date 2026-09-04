@@ -37,7 +37,7 @@ RUN test -x /app/whisper/build/bin/whisper-cli
 COPY app.py /app/
 
 # Install Flask and Gunicorn for the Python app
-RUN pip install Flask gunicorn
+RUN pip install Flask==3.1.3 gunicorn==26.2.0
 
 # Expose the port the app runs on
 EXPOSE 5000
