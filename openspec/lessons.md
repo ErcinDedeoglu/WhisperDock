@@ -415,3 +415,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** builder-apt-only-compile-deps
 - **Next experiment:** pin FROM digests for python and static-ffmpeg (reproducibility).
+
+## 2026-09-04 — pin-base-image-digests
+
+- **Date:** 2026-09-04
+- **Change:** pin-base-image-digests
+- **Finding:** python bookworm, slim-bookworm, and static-ffmpeg were floating tags.
+- **Hypothesis:** tag@sha256 index pins → Dockerfile has three digests; image builds multi-arch.
+- **Action:** Pin OCI index digests from `docker buildx imagetools inspect`.
+- **Evidence:** pins-ok; cli-ok. Hub `c43d09b` cli-ok ffmpeg python 3.12. Unittest 8/8. GHA 33859792599 success.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-pin-base-image-digests`.
+- **Failure mode:** pinning a platform digest (not the index) would break GHA amd64+arm64.
+- **Confidence:** high.
+- **Applicability:** multi-arch Dockerfiles that still use mutable tags.
+- **Superseded lesson:** none
+- **Pattern-Key:** pin-index-digest-keep-tag
+- **Next experiment:** add a `.dockerignore` under `src/` if the build context still ships tests/docs.
