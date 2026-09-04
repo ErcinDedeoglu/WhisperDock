@@ -72,6 +72,25 @@ class TranscribeApiTests(unittest.TestCase):
         self.assertTrue(payload["error"])
         self.assertEqual(leaked, [])
 
+    def test_oversized_upload_returns_json_413_and_leaves_no_temp_files(self):
+        limit = app.config["MAX_CONTENT_LENGTH"]
+        self.assertEqual(limit, 16 * 1000 * 1000)
+        before = set(os.listdir(self._tempdir))
+        response = self.client.post(
+            "/transcribe",
+            data={"file": (io.BytesIO(b"x" * (limit + 1)), "huge.wav")},
+        )
+        after = set(os.listdir(self._tempdir))
+        leaked = sorted(after - before)
+        self.assertEqual(response.status_code, 413)
+        self.assertIn("application/json", response.content_type)
+        self.assertNotIn("text/html", response.content_type)
+        payload = response.get_json()
+        self.assertIsInstance(payload, dict)
+        self.assertIn("error", payload)
+        self.assertTrue(payload["error"])
+        self.assertEqual(leaked, [])
+
     def test_missing_whisper_cli_returns_json_500(self):
         if os.path.exists(WHISPER_CLI):
             self.skipTest("whisper-cli is present at %s" % WHISPER_CLI)

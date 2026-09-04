@@ -6,6 +6,13 @@ import tempfile
 import re
 
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1000 * 1000
+
+
+@app.errorhandler(413)
+def request_entity_too_large(_error):
+    return jsonify(error="Request entity too large"), 413
+
 
 def _unlink_quietly(path):
     if not path:
