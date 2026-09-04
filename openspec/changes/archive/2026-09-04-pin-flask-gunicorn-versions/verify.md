@@ -25,4 +25,6 @@ Unittest (host Flask 3.1.2) plus image metadata (pinned 3.1.3/26.2.0) agree the 
 
 ## Remote
 
-Pending origin push of `main` and GitHub Actions `publish-docker.yml`.
+- Push: `main` `102b8d6` → `origin/main`
+- CI/CD: GitHub Actions `🐳 Docker Images` run 33846918383 success (3m4s)
+- Environment: `dublok/whisperdock:102b8d6` (linux/amd64) Flask 3.1.3 gunicorn 26.2.0
