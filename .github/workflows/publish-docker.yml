@@ -9,6 +9,9 @@ on:
       - 'src/**'
       - '.github/workflows/publish-docker.yml'
 
+permissions:
+  contents: read
+
 jobs:
   linux-build-and-push:
     name: 🐧 Linux Docker Build and Push
