@@ -6,15 +6,13 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 # Install C++ build tools and ffmpeg
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
+    ffmpeg \
     git \
     libsndfile1 \
-    ffmpeg
-
-# Clean up APT when done
-RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory to the root of the app
 WORKDIR /app
