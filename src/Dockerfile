@@ -28,10 +28,10 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg=7:5.1.9-0+deb12u1 \
     libgomp1=12.2.0-14+deb12u1 \
-    libsndfile1=1.2.0-1+deb12u1 \
     && rm -rf /var/lib/apt/lists/*
+
+COPY --from=mwader/static-ffmpeg:9.0.1 /ffmpeg /usr/local/bin/ffmpeg
 
 WORKDIR /app
 COPY --from=builder /app/whisper/build/bin/whisper-cli /app/whisper/build/bin/whisper-cli
