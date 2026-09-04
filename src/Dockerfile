@@ -34,7 +34,7 @@ RUN make CMAKE_ARGS="-DGGML_NATIVE=OFF"
 RUN test -x /app/whisper/build/bin/whisper-cli
 
 COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir --no-deps -r /app/requirements.txt
+RUN pip install --no-cache-dir --no-deps --require-hashes --only-binary :all: -r /app/requirements.txt
 
 COPY app.py /app/
 
