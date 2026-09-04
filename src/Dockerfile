@@ -38,6 +38,9 @@ RUN pip install --no-cache-dir --no-deps --require-hashes --only-binary :all: -r
 
 COPY app.py /app/
 
+RUN groupadd -g 10001 app && useradd --no-log-init -u 10001 -g app app
+USER app
+
 # Expose the port the app runs on
 EXPOSE 5000
 
