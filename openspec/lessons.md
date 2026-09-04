@@ -399,3 +399,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** static-ffmpeg-copy-from-not-apt
 - **Next experiment:** drop unused debian ffmpeg from builder (build-time only; no runtime size).
+
+## 2026-09-04 — drop-builder-ffmpeg
+
+- **Date:** 2026-09-04
+- **Change:** drop-builder-ffmpeg
+- **Finding:** Builder still apt-installed Debian ffmpeg and libsndfile1 though whisper-cli compiles with WHISPER_COMMON_FFMPEG off.
+- **Hypothesis:** three-package builder apt → whisper-cli still builds; no builder ffmpeg=.
+- **Action:** Drop ffmpeg and libsndfile1 from builder apt; keep git.
+- **Evidence:** dockerfile-ok; cli-ok; ffmpeg 9.0.1. Hub `301d0be` same. Unittest 8/8. GHA 33859305448 success.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-drop-builder-ffmpeg`.
+- **Failure mode:** none. cmake still finds git; ggml commit stays unknown without .git.
+- **Confidence:** high.
+- **Applicability:** multi-stage images that leftover runtime packages in the compile stage.
+- **Superseded lesson:** none
+- **Pattern-Key:** builder-apt-only-compile-deps
+- **Next experiment:** pin FROM digests for python and static-ffmpeg (reproducibility).
