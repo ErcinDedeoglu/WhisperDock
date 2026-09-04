@@ -44,5 +44,7 @@ USER app
 # Expose the port the app runs on
 EXPOSE 5000
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health')"]
+
 # Start the Flask application with Gunicorn, adjust the worker number and timeout as needed
 CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "--timeout", "300", "--chdir", "/app", "app:app"]

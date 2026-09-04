@@ -22,6 +22,11 @@ def _unlink_quietly(path):
         pass
 
 
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify(status="ok")
+
+
 @app.route('/transcribe', methods=['POST'])
 def transcribe_audio():
     if 'file' not in request.files:

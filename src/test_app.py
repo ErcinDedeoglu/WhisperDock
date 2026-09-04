@@ -35,6 +35,12 @@ class TranscribeApiTests(unittest.TestCase):
         tempfile.tempdir = self._prev_tempdir
         shutil.rmtree(self._tempdir, ignore_errors=True)
 
+    def test_health_returns_json_200(self):
+        response = self.client.get("/health")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("application/json", response.content_type)
+        self.assertEqual(response.get_json(), {"status": "ok"})
+
     def test_missing_file_returns_json_400(self):
         response = self.client.post("/transcribe")
         self.assertEqual(response.status_code, 400)
