@@ -367,3 +367,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** multi-stage-copy-cli-not-compiler
 - **Next experiment:** python:3.12-slim runtime to drop base g++ (need ffmpeg on slim).
+
+## 2026-09-04 — slim-runtime-drop-compiler
+
+- **Date:** 2026-09-04
+- **Change:** slim-runtime-drop-compiler
+- **Finding:** python:3.12-bookworm runtime still shipped g++ 4:12.2.0-3 via buildpack-deps.
+- **Hypothesis:** runtime FROM python:3.12-slim-bookworm → g++ absent; cli works; size < 2.21 GB; unittest 0.
+- **Action:** runtime FROM python:3.12-slim-bookworm; builder stays bookworm.
+- **Evidence:** local 1.06 GB; g_st=1; cli-ok; `(3, 12)`. Hub `0bdb3d7` same. Unittest 8/8. GHA 33858243431 success.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-slim-runtime-drop-compiler`.
+- **Failure mode:** `python:3.12-slim` currently tracks Trixie and would break Debian 12 apt pins.
+- **Confidence:** high.
+- **Applicability:** multi-stage Python images whose fat bookworm runtime still contains compilers.
+- **Superseded lesson:** none
+- **Pattern-Key:** slim-bookworm-runtime-not-floating-slim
+- **Next experiment:** ffmpeg still pulls mesa/llvm on slim (~1 GB); try a static ffmpeg or drop libavdevice.
