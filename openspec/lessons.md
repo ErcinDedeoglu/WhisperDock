@@ -207,3 +207,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** gunicorn-as-root-when-dockerfile-omits-user
 - **Next experiment:** gunicorn request-size vs Flask 16 MB (still needs evidence).
+
+## 2026-09-04 — add-container-healthcheck
+
+- **Date:** 2026-09-04
+- **Change:** add-container-healthcheck
+- **Finding:** Image Healthcheck=null; only POST `/transcribe`. Gunicorn 17 MB POST already JSON 413 in 10 ms (no body-size flag in gunicorn 26.2.0). Tiny WAV as uid 10001 → 200.
+- **Hypothesis:** GET `/health` 200 JSON + urllib HEALTHCHECK → inspect Test includes `/health`; container healthy; unittest still 0.
+- **Action:** `/health` `{"status":"ok"}`; HEALTHCHECK exec-form python urllib. No curl.
+- **Evidence:** unittest 7/7. Local healthy at 7s ExitCode=0. Hub `a223c92` Healthcheck set. GHA 33852948788 success.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-add-container-healthcheck`.
+- **Failure mode:** none. Gunicorn body-size was a non-finding (Flask 16 MB already applies).
+- **Confidence:** high for liveness; whisper readiness not in HEALTHCHECK by design.
+- **Applicability:** Flask/gunicorn images with no HEALTHCHECK and no GET liveness route.
+- **Superseded lesson:** none
+- **Pattern-Key:** docker-healthcheck-needs-2xx-liveness-route
+- **Next experiment:** gunicorn `-w 4` memory vs whisper workers, or skip docs-only Docker rebuilds.

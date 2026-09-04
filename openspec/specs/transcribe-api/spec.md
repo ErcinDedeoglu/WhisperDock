@@ -51,3 +51,10 @@ The service SHALL delete the uploaded file and the converted WAV path after the 
 #### Scenario: Invalid media leaves no temp files
 - **WHEN** a client POSTs unconvertible bytes as `bad.wav`
 - **THEN** after the response is returned, the process temp directory contains no new `tmp*` files created for that request
+
+### Requirement: Health probe is a JSON success
+GET `/health` SHALL respond with HTTP 200 and an `application/json` body whose `status` field is `ok`. The handler MUST NOT run ffmpeg or whisper-cli.
+
+#### Scenario: GET health
+- **WHEN** a client GETs `/health`
+- **THEN** the response status is 200, the content type is JSON, and the body is `{"status": "ok"}`

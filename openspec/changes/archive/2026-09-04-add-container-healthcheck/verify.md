@@ -9,4 +9,6 @@
 
 ## Remote
 
-Pending origin push and GHA.
+- Push: `main` `a223c92` → `origin/main`
+- CI/CD: GitHub Actions `🐳 Docker Images` run 33852948788 success (2m57s)
+- Environment: `dublok/whisperdock:a223c92` Healthcheck Test includes `/health`; User=app
