@@ -70,3 +70,10 @@ The Docker image workflow SHALL declare a top-level `permissions` mapping with `
 #### Scenario: Write scopes are absent
 - **WHEN** the published workflow file is searched for token write grants
 - **THEN** it does not contain `contents: write`, `write-all`, `packages: write`, or `id-token: write`
+
+### Requirement: Publish checkout does not persist credentials
+The Docker image workflow checkout step SHALL set `persist-credentials: false`. It MUST NOT leave the default persisted `GITHUB_TOKEN` in git config for later steps.
+
+#### Scenario: persist-credentials is false
+- **WHEN** the published workflow file's checkout step `with` mapping is read
+- **THEN** `persist-credentials` is `false`

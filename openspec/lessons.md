@@ -527,3 +527,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** gha-top-level-contents-read
 - **Next experiment:** `persist-credentials: false` on `actions/checkout` so the job token is not left in git config.
+
+## 2026-09-04 — disable-publish-checkout-credentials
+
+- **Date:** 2026-09-04
+- **Change:** disable-publish-checkout-credentials
+- **Finding:** Publish checkout used default `persist-credentials: true`; job never `git push`.
+- **Hypothesis:** `persist-credentials: false` → Docker Images still succeeds (Hub uses Docker secrets).
+- **Action:** Add `with: persist-credentials: false` on publish checkout only. Left sync-whisper (needs `git push`). Synced `docker-image-publish`.
+- **Evidence:** yaml-ok False. Unittest 8/8. GHA 33862607091 success. Hub `f2ed6db` cli-ok.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-disable-publish-checkout-credentials`.
+- **Failure mode:** same flag on sync-whisper would break `git push` unless remotes get `GH_TOKEN`.
+- **Confidence:** high.
+- **Applicability:** checkout jobs that only read the tree then use non-git credentials.
+- **Superseded lesson:** none
+- **Pattern-Key:** checkout-persist-credentials-false-when-no-git-push
+- **Next experiment:** drop unused `docker/setup-qemu-action` from amd64-only publish.
