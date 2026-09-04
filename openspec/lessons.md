@@ -271,3 +271,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** ffmpeg-stdin-interaction-hangs-noninteractive-workers
 - **Next experiment:** subprocess `timeout=` vs gunicorn `--timeout 300`.
+
+## 2026-09-04 — bound-subprocess-timeout
+
+- **Date:** 2026-09-04
+- **Change:** bound-subprocess-timeout
+- **Finding:** ffmpeg/whisper `subprocess.run` had no timeout; gunicorn `--timeout 300` would kill the worker.
+- **Hypothesis:** `timeout=240` + `TimeoutExpired` JSON 500 → unittest 8/8 including timeout path; holdout 400.
+- **Action:** SUBPROCESS_TIMEOUT=240 on both runs; catch TimeoutExpired as 500.
+- **Evidence:** unittest 8/8. Hub `c1d6bfc` SUBPROCESS_TIMEOUT=240. GHA 33855403261 success.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-bound-subprocess-timeout`.
+- **Failure mode:** none.
+- **Confidence:** high for mocked timeout; live 240s hang not run.
+- **Applicability:** Flask+gunicorn apps that spawn unbounded ffmpeg/whisper children.
+- **Superseded lesson:** none
+- **Pattern-Key:** subprocess-timeout-before-gunicorn-worker-kill
+- **Next experiment:** README still says WAV 16kHz-only though ffmpeg converts any ffmpeg-readable input.
