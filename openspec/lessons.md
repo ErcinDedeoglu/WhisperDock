@@ -431,3 +431,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** pin-index-digest-keep-tag
 - **Next experiment:** add a `.dockerignore` under `src/` if the build context still ships tests/docs.
+
+## 2026-09-04 — add-src-dockerignore
+
+- **Date:** 2026-09-04
+- **Change:** add-src-dockerignore
+- **Finding:** `docker build` context is `src/` with no root `.dockerignore`; nested `whisper/.dockerignore` is unused. Context included `test_app.py` and `__pycache__`.
+- **Hypothesis:** `src/.dockerignore` listing those paths → probe COPY test_app.py fails; whisper-cli still builds.
+- **Action:** Add ignore file with `test_app.py`, `__pycache__`, `*.pyc`. skip_specs.
+- **Evidence:** probe_st=1 CopyIgnoredFile. cli-ok. Hub `6e219ff` cli-ok no-test. Unittest 8/8. GHA 33860343232 success.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-add-src-dockerignore`.
+- **Failure mode:** ignoring whisper/tests or examples would break cmake add_subdirectory.
+- **Confidence:** high for ignore of unittest; tiny context win (~28 KB).
+- **Applicability:** subdirectory Docker contexts whose nested .dockerignore is not the context root.
+- **Superseded lesson:** none
+- **Pattern-Key:** dockerignore-at-context-root
+- **Next experiment:** Dependabot docker ecosystem for digest bumps, or document HEALTHCHECK in README if missing.
