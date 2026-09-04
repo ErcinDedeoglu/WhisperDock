@@ -79,3 +79,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** dockerfile-subdir-context-vs-readme-dot
 - **Next experiment:** Remove unused `import socket` in `src/app.py` (polish) or pin Flask/gunicorn (reliability).
+
+## 2026-09-04 — pin-flask-gunicorn-versions
+
+- **Date:** 2026-09-04
+- **Change:** pin-flask-gunicorn-versions
+- **Finding:** `RUN pip install Flask gunicorn` unpinned; host Flask 3.1.2 / gunicorn 23.0.0 vs image Flask 3.1.3 / gunicorn 26.2.0.
+- **Hypothesis:** `Flask==3.1.3 gunicorn==26.2.0` on that RUN → rebuild metadata matches; unittest still exit 0.
+- **Action:** One-line Dockerfile pin. No requirements.txt. Synced `container-runtime`; archived.
+- **Evidence:** Unittest 6/6. `whisperdock-local:pinned` and Hub `dublok/whisperdock:102b8d6` both 3.1.3 / 26.2.0. GHA run 33846918383 success. Chrome N/A.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-pin-flask-gunicorn-versions`. Pushed `main`.
+- **Failure mode:** none. Hub tag is linux/amd64 only; local arm64 pull needs `--platform linux/amd64`.
+- **Confidence:** high local + Hub metadata; whisper success path still not run.
+- **Applicability:** Dockerfiles with unpinned `pip install` of runtime WSGI packages.
+- **Superseded lesson:** none
+- **Pattern-Key:** unpinned-pip-install-floats-rebuilds
+- **Next experiment:** Unused `import socket` (polish) or GHA Node 20 deprecation on Docker Actions (reliability) or hashed pip lockfile (transitive pins).
