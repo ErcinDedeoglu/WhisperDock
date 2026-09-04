@@ -287,3 +287,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** subprocess-timeout-before-gunicorn-worker-kill
 - **Next experiment:** README still says WAV 16kHz-only though ffmpeg converts any ffmpeg-readable input.
+
+## 2026-09-04 — fix-readme-wav-only-claim
+
+- **Date:** 2026-09-04
+- **Change:** fix-readme-wav-only-claim
+- **Finding:** README required WAV 16 kHz; ffmpeg already converts with `-ar 16000 -ac 1`.
+- **Hypothesis:** replace that sentence → old phrase gone; unittest still 0; no Docker Images run.
+- **Action:** one README sentence; skip_specs.
+- **Evidence:** unittest 8/8. `296d22e` had no Docker Images run.
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-fix-readme-wav-only-claim`.
+- **Failure mode:** none.
+- **Confidence:** high for docs; curl example still uses `.wav`.
+- **Applicability:** READMEs that document a client constraint the server already lifts.
+- **Superseded lesson:** none
+- **Pattern-Key:** readme-client-format-vs-server-ffmpeg-convert
+- **Next experiment:** document GET `/health` in README, or apt `--no-install-recommends`.
