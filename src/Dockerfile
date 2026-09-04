@@ -28,8 +28,9 @@ WORKDIR /app/whisper
 # Download the model by running the script
 RUN bash ./models/download-ggml-model.sh base.en
 
-# Build the main example
+# Build whisper-cli (Makefile's default target runs cmake into build/bin)
 RUN make
+RUN test -x /app/whisper/build/bin/whisper-cli
 
 # Copy the Flask app to the container (assuming it's in the src directory)
 COPY app.py /app/
