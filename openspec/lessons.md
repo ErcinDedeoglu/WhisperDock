@@ -463,3 +463,19 @@
 - **Superseded lesson:** none
 - **Pattern-Key:** dependabot-docker-directory-is-dockerfile-dir
 - **Next experiment:** Dependabot github-actions ecosystem for workflow action pins.
+
+## 2026-09-04 — add-dependabot-github-actions
+
+- **Date:** 2026-09-04
+- **Change:** add-dependabot-github-actions
+- **Finding:** Dependabot watched docker `/src` only; workflows still use unpinned major tags.
+- **Hypothesis:** github-actions `/` weekly → keys present; Docker Images does not start.
+- **Action:** Second updates entry; keep docker `/src`.
+- **Evidence:** dependabot-ok. Unittest 8/8. No 🐳 for `beb2836`. Dependabot Updates 33860964301 success (`github_actions in /.`).
+- **Outcome:** Hypothesis confirmed. Archived `openspec/changes/archive/2026-09-04-add-dependabot-github-actions`.
+- **Failure mode:** `directory: /.github/workflows` is wrong per GitHub docs.
+- **Confidence:** high for config.
+- **Applicability:** repos with Dependabot docker but not actions.
+- **Superseded lesson:** none
+- **Pattern-Key:** dependabot-github-actions-directory-slash
+- **Next experiment:** Dependabot pip for hashed requirements.txt, or SHA-pin GHA actions.
