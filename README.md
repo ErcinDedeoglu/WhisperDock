@@ -52,7 +52,7 @@ git clone https://github.com/ErcinDedeoglu/WhisperDock
 
 2. Build the Docker image:
 ```bash
-docker build -t whisperdock .
+docker build -t whisperdock src
 ```
 
 3. Run the container:
@@ -70,7 +70,17 @@ To transcribe audio, make a POST request to the `/transcribe` endpoint with the 
 curl -X POST -F 'file=@/path/to/your/audio.wav' http://localhost:5000/transcribe
 ```
 
-Ensure your audio file is in WAV format with a sample rate of 16kHz.
+The service converts ffmpeg-readable audio to 16 kHz mono WAV before transcription. Uploads larger than 16 MB are rejected.
+
+Liveness:
+
+```bash
+curl http://localhost:5000/health
+```
+
+```json
+{"status": "ok"}
+```
 
 ### Example Response
 
@@ -103,16 +113,12 @@ If there is an error in transcription, the service might return an error respons
 
 Make sure to handle both success and error responses appropriately in your application.
 
---- 
-
-Adjust the example response to match the actual output format of your transcription service. The error message should also reflect what your service would actually return in case of a failure.
-
 ## Development
 
 ### Prerequisites
 
 - Docker
-- Python 3.8
+- Python 3.12
 - C++ build tools (cmake, make, g++)
 - ffmpeg
 
