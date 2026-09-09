@@ -6938,6 +6938,13 @@ int whisper_full_with_state(
     if (params.language == nullptr || strlen(params.language) == 0 || strcmp(params.language, "auto") == 0 || params.detect_language) {
         std::vector<float> probs(whisper_lang_max_id() + 1, 0.0f);
 
+        if (params.encoder_begin_callback) {
+            if (params.encoder_begin_callback(ctx, state, params.encoder_begin_callback_user_data) == false) {
+                WHISPER_LOG_ERROR("%s: encoder_begin_callback returned false - aborting\n", __func__);
+                return -3;
+            }
+        }
+
         const auto lang_id = whisper_lang_auto_detect_with_state(ctx, state, 0, params.n_threads, probs.data());
         if (lang_id < 0) {
             WHISPER_LOG_ERROR("%s: failed to auto-detect language\n", __func__);
@@ -7005,6 +7012,13 @@ int whisper_full_with_state(
         WHISPER_LOG_ERROR("%s: too many decoders requested (%d), max = %d\n", __func__, n_decoders, WHISPER_MAX_DECODERS);
         return -4;
     }
+
+    // decoder 0 is seeded once in whisper_init_state and skipped by the loop below, so its
+    // generator carries over between calls for the whole lifetime of the state. It is only read
+    // in the temperature > 0 branch, i.e. on the temperature fallback path, which makes the
+    // output a function of how many calls the state has already served: the same audio, decoded
+    // twice, can yield different text. Re-seed it here like every other decoder.
+    state->decoders[0].rng = std::mt19937(0);
 
     // TAGS: WHISPER_DECODER_INIT
     for (int j = 1; j < n_decoders; j++) {
