@@ -1650,6 +1650,12 @@ static bool whisper_model_load(struct whisper_model_loader * loader, whisper_con
             vocab.token_beg        += dt;
         }
 
+        // every special token id (token_beg is the largest) must be a valid index into the logits
+        if (vocab.n_vocab <= vocab.token_beg) {
+            WHISPER_LOG_ERROR("%s: invalid model (n_vocab = %d must be greater than token_beg = %d)\n", __func__, vocab.n_vocab, vocab.token_beg);
+            return false;
+        }
+
         if (n_vocab < model.hparams.n_vocab) {
             WHISPER_LOG_INFO("%s: adding %d extra tokens\n", __func__, model.hparams.n_vocab - n_vocab);
             for (int i = n_vocab; i < model.hparams.n_vocab; i++) {
@@ -9133,7 +9139,15 @@ static void median_filter(struct ggml_tensor * dst , const struct ggml_tensor * 
         return;
     }
     int filter_width = ((median_filter_user_data *) userdata)->filter_width;
-    WHISPER_ASSERT(filter_width < a->ne[2]);
+    // A window that advanced only a few frames has fewer audio tokens than
+    // the filter is wide: narrow the filter instead of aborting (1: none).
+    if (filter_width >= a->ne[2]) {
+        filter_width = (a->ne[2] % 2) ? (int) a->ne[2] - 2 : (int) a->ne[2] - 1;
+        if (filter_width < 1) {
+            filter_width = 1;
+        }
+    }
+    WHISPER_ASSERT(filter_width < a->ne[2] || filter_width == 1);
     WHISPER_ASSERT(filter_width % 2);
     WHISPER_ASSERT(ggml_n_dims(a) == 3);
     WHISPER_ASSERT(a->type == GGML_TYPE_F32);
