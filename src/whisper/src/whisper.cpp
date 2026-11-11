@@ -1,5 +1,6 @@
 #include "whisper.h"
 #include "whisper-arch.h"
+#include "whisper-logging.h"
 
 #include "ggml.h"
 #include "ggml-cpp.h"
@@ -106,36 +107,11 @@ static void byteswap_tensor(ggml_tensor * tensor) {
 #define BYTESWAP_TENSOR(t) do {} while (0)
 #endif
 
-#ifdef __GNUC__
-#ifdef __MINGW32__
-#define WHISPER_ATTRIBUTE_FORMAT(...) __attribute__((format(gnu_printf, __VA_ARGS__)))
-#else
-#define WHISPER_ATTRIBUTE_FORMAT(...) __attribute__((format(printf, __VA_ARGS__)))
-#endif
-#else
-#define WHISPER_ATTRIBUTE_FORMAT(...)
-#endif
-
 //
 // logging
 //
 
-WHISPER_ATTRIBUTE_FORMAT(2, 3)
-static void whisper_log_internal        (ggml_log_level level, const char * format, ...);
 static void whisper_log_callback_default(ggml_log_level level, const char * text, void * user_data);
-
-#define WHISPER_LOG_ERROR(...) whisper_log_internal(GGML_LOG_LEVEL_ERROR, __VA_ARGS__)
-#define WHISPER_LOG_WARN(...)  whisper_log_internal(GGML_LOG_LEVEL_WARN , __VA_ARGS__)
-#define WHISPER_LOG_INFO(...)  whisper_log_internal(GGML_LOG_LEVEL_INFO , __VA_ARGS__)
-
-// define this to enable verbose trace logging - useful for debugging purposes
-//#define WHISPER_DEBUG
-
-#if defined(WHISPER_DEBUG)
-#define WHISPER_LOG_DEBUG(...) whisper_log_internal(GGML_LOG_LEVEL_DEBUG, __VA_ARGS__)
-#else
-#define WHISPER_LOG_DEBUG(...)
-#endif
 
 #define WHISPER_ASSERT(x) \
     do { \
@@ -2120,8 +2096,6 @@ static struct ggml_cgraph * whisper_build_graph_encoder(
     auto & kv_pad = wstate.kv_pad;
 
     WHISPER_ASSERT(!!kv_pad.buffer);
-
-    const int n_ctx_pad = GGML_PAD(n_ctx, 256);
 
     struct ggml_init_params params = {
         /*.mem_size   =*/ wstate.sched_encode.meta.size(),
@@ -9388,7 +9362,7 @@ const char * whisper_version(void) {
 }
 
 GGML_ATTRIBUTE_FORMAT(2, 3)
-static void whisper_log_internal(ggml_log_level level, const char * format, ...) {
+void whisper_log_internal(ggml_log_level level, const char * format, ...) {
     va_list args;
     va_start(args, format);
     char buffer[1024];
